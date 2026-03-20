@@ -34,8 +34,10 @@ if git diff --cached --quiet; then
     echo "No changes to publish."
 else
     git commit -m "Update feeds $(date +%Y-%m-%d)"
-    echo "Published feeds to gh-pages."
 fi
+
+git push origin gh-pages
+echo "Published feeds to gh-pages."
 
 # Return to original branch
 git checkout "$CURRENT_BRANCH"

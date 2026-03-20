@@ -50,7 +50,12 @@ def make_guid(feed_id, title, date_str):
 
 
 def init_feed(feed_id, name, description, feeds_dir):
-    """Create a new empty RSS feed XML file."""
+    """Create a new empty RSS feed XML file. No-op if feed already exists."""
+    path = feeds_dir / f"{feed_id}.xml"
+    if path.exists():
+        print(f"Feed already exists: {path}")
+        return
+
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = name
@@ -59,7 +64,6 @@ def init_feed(feed_id, name, description, feeds_dir):
     ET.SubElement(channel, "lastBuildDate").text = rfc822()
     ET.SubElement(channel, "generator").text = "rss-research via Claude Code"
 
-    path = feeds_dir / f"{feed_id}.xml"
     tree = ET.ElementTree(rss)
     ET.indent(tree, space="  ")
     tree.write(path, encoding="unicode", xml_declaration=True)
