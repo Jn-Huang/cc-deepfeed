@@ -49,6 +49,25 @@ def make_guid(feed_id, title, date_str):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, raw))
 
 
+def split_csv(value):
+    """Split a comma-separated string into a list, stripping whitespace."""
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def write_xml(tree, path):
+    """Write an ElementTree to an XML file with consistent formatting."""
+    ET.indent(tree, space="  ")
+    tree.write(path, encoding="unicode", xml_declaration=True)
+
+
+def save_state(state, state_path):
+    """Write state dict to a JSON file with consistent formatting."""
+    with open(state_path, "w") as f:
+        json.dump(state, f, indent=2, ensure_ascii=False)
+
+
 def init_feed(feed_id, name, description, feeds_dir):
     """Create a new empty RSS feed XML file. No-op if feed already exists."""
     path = feeds_dir / f"{feed_id}.xml"
@@ -65,12 +84,11 @@ def init_feed(feed_id, name, description, feeds_dir):
     ET.SubElement(channel, "generator").text = "rss-research via Claude Code"
 
     tree = ET.ElementTree(rss)
-    ET.indent(tree, space="  ")
-    tree.write(path, encoding="unicode", xml_declaration=True)
+    write_xml(tree, path)
     print(f"Initialized feed: {path}")
 
 
-def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir):
+def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_id=None):
     """Add an entry to an existing feed and update state."""
     path = feeds_dir / f"{feed_id}.xml"
     if not path.exists():
@@ -88,12 +106,14 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir):
     date_str = now.strftime("%Y-%m-%d")
     guid = make_guid(feed_id, title, date_str)
 
+    # Normalize sources to list once
+    source_list = sources if isinstance(sources, list) else split_csv(sources or "")
+
     # Build content with sources
     body = content_html
-    if sources:
-        source_links = sources if isinstance(sources, list) else [s.strip() for s in sources.split(",")]
+    if source_list:
         body += "\n<hr/>\n<p><strong>Sources:</strong></p>\n<ul>\n"
-        for url in source_links:
+        for url in source_list:
             escaped = html.escape(url)
             body += f'  <li><a href="{escaped}">{escaped}</a></li>\n'
         body += "</ul>"
@@ -103,18 +123,15 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir):
     ET.SubElement(item, "description").text = body
     ET.SubElement(item, "guid", isPermaLink="false").text = guid
     ET.SubElement(item, "pubDate").text = rfc822(now)
-    if sources:
-        source_list = sources if isinstance(sources, list) else [s.strip() for s in sources.split(",")]
-        if source_list:
-            ET.SubElement(item, "link").text = source_list[0]
+    if source_list:
+        ET.SubElement(item, "link").text = source_list[0]
 
     # Update lastBuildDate
     last_build = channel.find("lastBuildDate")
     if last_build is not None:
         last_build.text = rfc822(now)
 
-    ET.indent(tree, space="  ")
-    tree.write(path, encoding="unicode", xml_declaration=True)
+    write_xml(tree, path)
 
     # Update state
     update_state(feed_id, state_dir, {
@@ -122,7 +139,7 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir):
         "title": title,
         "date": date_str,
         "fingerprints": extract_fingerprints(title, content_html),
-    })
+    }, run_id=run_id)
 
     print(f"Added entry to {feed_id}: {title}")
 
@@ -140,7 +157,7 @@ def extract_fingerprints(title, _content):
     return fingerprints
 
 
-def update_state(feed_id, state_dir, entry_record):
+def update_state(feed_id, state_dir, entry_record, run_id=None):
     """Update .state/<feed_id>.json with a new entry record."""
     state_path = state_dir / f"{feed_id}.json"
     if state_path.exists():
@@ -149,22 +166,32 @@ def update_state(feed_id, state_dir, entry_record):
     else:
         state = {"last_run": None, "entries": []}
 
-    state["last_run"] = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+    state["last_run"] = now
+    entry_record["run_id"] = run_id or now
     state["entries"].append(entry_record)
     # Keep only last 100 entries in state for memory
     state["entries"] = state["entries"][-100:]
 
-    with open(state_path, "w") as f:
-        json.dump(state, f, indent=2)
+    save_state(state, state_path)
 
 
 def load_state(feed_id, state_dir):
-    """Load state for a feed. Returns dict with last_run and entries."""
+    """Load state for a feed. Returns dict with last_run, entries, and knowledge."""
     state_path = state_dir / f"{feed_id}.json"
     if state_path.exists():
         with open(state_path) as f:
-            return json.load(f)
-    return {"last_run": None, "entries": []}
+            state = json.load(f)
+    else:
+        state = {"last_run": None, "entries": []}
+    # Ensure knowledge key exists (backward compat with pre-Phase1 state)
+    if "knowledge" not in state:
+        state["knowledge"] = {
+            "brief": "",
+            "key_entities": [],
+            "active_threads": [],
+        }
+    return state
 
 
 def prune_feed(feed_id, keep, feeds_dir, state_dir):
@@ -196,8 +223,7 @@ def prune_feed(feed_id, keep, feeds_dir, state_dir):
             removed_guids.add(guid_el.text)
         channel.remove(item)
 
-    ET.indent(tree, space="  ")
-    tree.write(path, encoding="unicode", xml_declaration=True)
+    write_xml(tree, path)
 
     # Clean state too
     if removed_guids:
@@ -206,10 +232,58 @@ def prune_feed(feed_id, keep, feeds_dir, state_dir):
             with open(state_path) as f:
                 state = json.load(f)
             state["entries"] = [e for e in state["entries"] if e.get("guid") not in removed_guids]
-            with open(state_path, "w") as f:
-                json.dump(state, f, indent=2)
+            save_state(state, state_path)
 
     print(f"Pruned {len(to_remove)} entries from {feed_id}, kept {keep}.")
+
+
+def rollback_feed(feed_id, feeds_dir, state_dir):
+    """Remove entries from the most recent run."""
+    state = load_state(feed_id, state_dir)
+    entries = state.get("entries", [])
+
+    if not entries:
+        print(f"No entries to roll back for {feed_id}.")
+        return
+
+    # Find the run_id of the most recent entry
+    last_entry = entries[-1]
+    target_run_id = last_entry.get("run_id")
+
+    if target_run_id is None:
+        # Pre-run_id entries: fall back to date-based grouping
+        target_date = last_entry.get("date")
+        to_remove = [e for e in entries if e.get("date") == target_date]
+        remaining = [e for e in entries if e.get("date") != target_date]
+    else:
+        to_remove = [e for e in entries if e.get("run_id") == target_run_id]
+        remaining = [e for e in entries if e.get("run_id") != target_run_id]
+
+    if not to_remove:
+        print(f"No entries found for rollback in {feed_id}.")
+        return
+
+    # Remove from XML
+    guids_to_remove = {e["guid"] for e in to_remove}
+    path = feeds_dir / f"{feed_id}.xml"
+    if path.exists():
+        tree = ET.parse(path)
+        root = tree.getroot()
+        channel = root.find("channel")
+        if channel is not None:
+            for item in channel.findall("item"):
+                guid_el = item.find("guid")
+                if guid_el is not None and guid_el.text in guids_to_remove:
+                    channel.remove(item)
+            write_xml(tree, path)
+
+    # Update state
+    state["entries"] = remaining
+    save_state(state, state_dir / f"{feed_id}.json")
+
+    print(f"Rolled back {len(to_remove)} entries from {feed_id}:")
+    for e in to_remove:
+        print(f"  - {e['title']}")
 
 
 def list_entries(feed_id, _feeds_dir, state_dir):
@@ -233,7 +307,206 @@ def list_entries(feed_id, _feeds_dir, state_dir):
 def show_state(feed_id, state_dir):
     """Dump raw state JSON for a feed (for Claude to read)."""
     state = load_state(feed_id, state_dir)
-    print(json.dumps(state, indent=2))
+    print(json.dumps(state, indent=2, ensure_ascii=False))
+
+
+def show_knowledge(feed_id, state_dir):
+    """Dump knowledge object for a feed (for agent to read before research)."""
+    state = load_state(feed_id, state_dir)
+    print(json.dumps(state["knowledge"], indent=2, ensure_ascii=False))
+
+
+def update_knowledge(feed_id, state_dir, brief, entities, threads_json):
+    """Update the knowledge object in state after a research cycle."""
+    state_path = state_dir / f"{feed_id}.json"
+    state = load_state(feed_id, state_dir)
+
+    knowledge = state["knowledge"]
+
+    if brief is not None:
+        knowledge["brief"] = brief
+
+    if entities is not None:
+        knowledge["key_entities"] = entities
+
+    if threads_json is not None:
+        knowledge["active_threads"] = json.loads(threads_json)
+
+    state["knowledge"] = knowledge
+
+    save_state(state, state_path)
+
+    print(f"Updated knowledge for {feed_id}")
+
+
+def show_status(config):
+    """Show a dashboard of all feeds: name, last run, entry count, health."""
+    feeds_dir, state_dir = get_dirs(config)
+    feeds = config.get("feeds", [])
+
+    if not feeds:
+        print("No feeds configured.")
+        return
+
+    max_entries = config.get("settings", {}).get("max_entries", 30)
+
+    print(f"{'Feed':<20} {'Last Run':<25} {'Entries':<10} {'Health'}")
+    print("-" * 65)
+
+    for feed_cfg in feeds:
+        feed_id = feed_cfg["id"]
+        state = load_state(feed_id, state_dir)
+        entry_count = len(state.get("entries", []))
+
+        last_run = state.get("last_run")
+        lr_dt = None
+        delta = None
+        if last_run:
+            try:
+                lr_dt = datetime.fromisoformat(last_run)
+                delta = datetime.now(timezone.utc) - lr_dt
+            except (ValueError, TypeError):
+                pass
+
+        if delta is not None:
+            if delta.days > 0:
+                age = f"{delta.days}d ago"
+            elif delta.seconds >= 3600:
+                age = f"{delta.seconds // 3600}h ago"
+            else:
+                age = f"{delta.seconds // 60}m ago"
+            lr_display = f"{age} ({lr_dt.strftime('%Y-%m-%d')})"
+        elif last_run:
+            lr_display = last_run[:19]
+        else:
+            lr_display = "never"
+
+        feed_path = feeds_dir / f"{feed_id}.xml"
+        if not feed_path.exists():
+            health = "NO XML"
+        elif delta is None:
+            health = "NEW"
+        else:
+            health = "STALE" if delta.days > 7 else "OK"
+
+        print(f"{feed_id:<20} {lr_display:<25} {entry_count}/{max_entries:<7} {health}")
+
+
+def log_run(feed_id, log_data):
+    """Append a structured log entry for a research run."""
+    base = Path(__file__).parent
+    log_dir = base / ".logs" / feed_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    log_path = log_dir / f"{date_str}.json"
+
+    if log_path.exists():
+        with open(log_path) as f:
+            entries = json.load(f)
+    else:
+        entries = []
+
+    entries.append(log_data)
+
+    with open(log_path, "w") as f:
+        json.dump(entries, f, indent=2, ensure_ascii=False)
+
+    print(f"Logged run for {feed_id}: {log_data.get('entries_added', 0)} added, {len(log_data.get('errors', []))} errors")
+
+
+def generate_opml(config, base_url):
+    """Generate an OPML file listing all feeds."""
+    feeds_dir, _ = get_dirs(config)
+    feeds = config.get("feeds", [])
+
+    opml = ET.Element("opml", version="2.0")
+    head = ET.SubElement(opml, "head")
+    ET.SubElement(head, "title").text = "rss-research feeds"
+    ET.SubElement(head, "dateCreated").text = rfc822()
+
+    body = ET.SubElement(opml, "body")
+    for feed_cfg in feeds:
+        feed_id = feed_cfg["id"]
+        feed_url = f"{base_url.rstrip('/')}/{feed_id}.xml"
+        ET.SubElement(body, "outline",
+            type="rss",
+            text=feed_cfg.get("name", feed_id),
+            title=feed_cfg.get("name", feed_id),
+            xmlUrl=feed_url,
+            htmlUrl=base_url,
+        )
+
+    tree = ET.ElementTree(opml)
+    opml_path = feeds_dir / "index.opml"
+    write_xml(tree, opml_path)
+    print(f"Generated OPML: {opml_path}")
+
+
+def generate_index_html(config, base_url):
+    """Generate a simple index.html listing all feeds with subscribe links."""
+    feeds_dir, state_dir = get_dirs(config)
+    feeds = config.get("feeds", [])
+
+    parts = [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '  <meta charset="utf-8">',
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+        '  <title>rss-research feeds</title>',
+        '  <style>',
+        '    body { font-family: -apple-system, system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }',
+        '    h1 { border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }',
+        '    .feed { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
+        '    .feed h2 { margin: 0 0 0.5rem 0; font-size: 1.2rem; }',
+        '    .feed p { margin: 0.5rem 0; color: #666; font-size: 0.9rem; }',
+        '    .feed .links a { color: #0066cc; text-decoration: none; font-size: 0.9rem; }',
+        '    .feed .links a:hover { text-decoration: underline; }',
+        '    .meta { color: #999; font-size: 0.85rem; margin-top: 0.5rem; }',
+        '    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #999; font-size: 0.85rem; }',
+        '  </style>',
+        '</head>',
+        '<body>',
+        '  <h1>rss-research feeds</h1>',
+        '  <p>Deep research briefings delivered as RSS feeds.</p>',
+        f'  <p><a href="{base_url.rstrip("/")}/index.opml">Import all feeds (OPML)</a></p>',
+    ]
+
+    for feed_cfg in feeds:
+        feed_id = feed_cfg["id"]
+        name = html.escape(feed_cfg.get("name", feed_id))
+        desc = html.escape(feed_cfg.get("description", "").strip().split("\n")[0])
+        feed_url = f"{base_url.rstrip('/')}/{feed_id}.xml"
+
+        state = load_state(feed_id, state_dir)
+        entry_count = len(state.get("entries", []))
+        last_run = state.get("last_run", "never")
+        if last_run != "never":
+            try:
+                last_run = datetime.fromisoformat(last_run).strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+
+        parts.extend([
+            '  <div class="feed">',
+            f'    <h2>{name}</h2>',
+            f'    <p>{desc}</p>',
+            f'    <div class="links"><a href="{feed_url}">RSS Feed</a></div>',
+            f'    <div class="meta">{entry_count} entries &middot; last updated {last_run}</div>',
+            '  </div>',
+        ])
+
+    parts.extend([
+        f'  <footer>Generated by rss-research &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</footer>',
+        '</body>',
+        '</html>',
+    ])
+
+    index_path = feeds_dir / "index.html"
+    with open(index_path, "w") as f:
+        f.write("\n".join(parts))
+    print(f"Generated index: {index_path}")
 
 
 def main():
@@ -252,6 +525,7 @@ def main():
     p_add.add_argument("--title", required=True)
     p_add.add_argument("--content", required=True, help="HTML content of the entry")
     p_add.add_argument("--sources", default="", help="Comma-separated source URLs")
+    p_add.add_argument("--run-id", default=None, help="Run identifier for rollback grouping")
 
     # prune
     p_prune = sub.add_parser("prune", help="Prune old entries")
@@ -266,6 +540,44 @@ def main():
     p_state = sub.add_parser("state", help="Show raw state JSON for a feed")
     p_state.add_argument("feed_id")
 
+    # knowledge
+    p_knowledge = sub.add_parser("knowledge", help="Show knowledge brief for a feed")
+    p_knowledge.add_argument("feed_id")
+
+    # learn
+    p_learn = sub.add_parser("learn", help="Update knowledge after research")
+    p_learn.add_argument("feed_id")
+    p_learn.add_argument("--brief", default=None, help="Updated knowledge brief (2-3 paragraphs)")
+    p_learn.add_argument("--entities", default=None, help="Comma-separated key entities")
+    p_learn.add_argument("--threads", default=None, help="JSON array of active thread objects")
+
+    # rollback
+    p_rollback = sub.add_parser("rollback", help="Remove entries from the most recent run")
+    p_rollback.add_argument("feed_id")
+
+    # status
+    sub.add_parser("status", help="Show status dashboard for all feeds")
+
+    # log
+    p_log = sub.add_parser("log", help="Record a structured run log")
+    p_log.add_argument("feed_id")
+    p_log.add_argument("--started", required=True, help="ISO timestamp when run started")
+    p_log.add_argument("--finished", required=True, help="ISO timestamp when run finished")
+    p_log.add_argument("--queries", default="", help="Comma-separated search queries used")
+    p_log.add_argument("--sources-consulted", type=int, default=0)
+    p_log.add_argument("--entries-added", type=int, default=0)
+    p_log.add_argument("--entries-skipped", type=int, default=0)
+    p_log.add_argument("--threads-updated", default="", help="Comma-separated thread names")
+    p_log.add_argument("--errors", default="", help="Comma-separated error descriptions")
+
+    # opml
+    p_opml = sub.add_parser("opml", help="Generate OPML file for all feeds")
+    p_opml.add_argument("--base-url", required=True, help="Base URL where feeds are hosted")
+
+    # index-html
+    p_index = sub.add_parser("index-html", help="Generate index.html for all feeds")
+    p_index.add_argument("--base-url", required=True, help="Base URL where feeds are hosted")
+
     args = parser.parse_args()
     config = load_config()
     feeds_dir, state_dir = get_dirs(config)
@@ -273,14 +585,38 @@ def main():
     if args.command == "init":
         init_feed(args.feed_id, args.name, args.description, feeds_dir)
     elif args.command == "add":
-        sources = [s.strip() for s in args.sources.split(",") if s.strip()] if args.sources else []
-        add_entry(args.feed_id, args.title, args.content, sources, feeds_dir, state_dir)
+        add_entry(args.feed_id, args.title, args.content, split_csv(args.sources), feeds_dir, state_dir, run_id=args.run_id)
     elif args.command == "prune":
         prune_feed(args.feed_id, args.keep, feeds_dir, state_dir)
     elif args.command == "list":
         list_entries(args.feed_id, feeds_dir, state_dir)
     elif args.command == "state":
         show_state(args.feed_id, state_dir)
+    elif args.command == "knowledge":
+        show_knowledge(args.feed_id, state_dir)
+    elif args.command == "learn":
+        entities = split_csv(args.entities) or None
+        update_knowledge(args.feed_id, state_dir, args.brief, entities, args.threads)
+    elif args.command == "rollback":
+        rollback_feed(args.feed_id, feeds_dir, state_dir)
+    elif args.command == "status":
+        show_status(config)
+    elif args.command == "log":
+        log_run(args.feed_id, {
+            "feed_id": args.feed_id,
+            "started": args.started,
+            "finished": args.finished,
+            "queries": split_csv(args.queries),
+            "sources_consulted": args.sources_consulted,
+            "entries_added": args.entries_added,
+            "entries_skipped": args.entries_skipped,
+            "threads_updated": split_csv(args.threads_updated),
+            "errors": split_csv(args.errors),
+        })
+    elif args.command == "opml":
+        generate_opml(config, args.base_url)
+    elif args.command == "index-html":
+        generate_index_html(config, args.base_url)
 
 
 if __name__ == "__main__":

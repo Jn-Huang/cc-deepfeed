@@ -4,7 +4,7 @@
       "WebSearch",
       "WebFetch",
       "Bash(python feed.py *)",
-      "Bash(bash publish.sh)"
+      "Bash(bash publish.sh*)"
     ]
   }
 }

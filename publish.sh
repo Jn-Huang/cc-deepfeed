@@ -1,19 +1,31 @@
 #!/bin/bash
 # Publish feeds/ to gh-pages branch for GitHub Pages serving.
 # Called after each research cycle.
+# Usage: bash publish.sh [base-url]
+#   If base-url is provided, also generates index.html and OPML.
 
 set -e
 
-FEEDS_DIR="$(cd "$(dirname "$0")" && pwd)/feeds"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+FEEDS_DIR="$PROJECT_DIR/feeds"
 
 if [ ! -d "$FEEDS_DIR" ] || [ -z "$(ls -A "$FEEDS_DIR"/*.xml 2>/dev/null)" ]; then
     echo "No feed XML files found in feeds/. Nothing to publish."
     exit 0
 fi
 
+# Generate index.html and OPML if base URL is provided
+BASE_URL="${1:-}"
+if [ -n "$BASE_URL" ]; then
+    python "$PROJECT_DIR/feed.py" index-html --base-url "$BASE_URL"
+    python "$PROJECT_DIR/feed.py" opml --base-url "$BASE_URL"
+fi
+
 # Create a temporary directory for the gh-pages content
 TMPDIR=$(mktemp -d)
 cp "$FEEDS_DIR"/*.xml "$TMPDIR/"
+[ -f "$FEEDS_DIR/index.html" ] && cp "$FEEDS_DIR/index.html" "$TMPDIR/"
+[ -f "$FEEDS_DIR/index.opml" ] && cp "$FEEDS_DIR/index.opml" "$TMPDIR/"
 
 # Switch to gh-pages branch, update, switch back
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -28,8 +40,9 @@ else
 fi
 
 # Copy feeds and commit
-cp "$TMPDIR"/*.xml .
-git add *.xml
+cp "$TMPDIR"/* .
+git add *.xml 2>/dev/null || true
+git add index.html index.opml 2>/dev/null || true
 if git diff --cached --quiet; then
     echo "No changes to publish."
 else

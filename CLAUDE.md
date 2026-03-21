@@ -14,21 +14,38 @@ Deep research briefings delivered as RSS feeds.
 Run the research cycle by invoking the agent:
 
 ```
-@research
+@research              # all feeds
+@research meta-news    # single feed
+@research --dry-run    # preview without writing
 ```
 
 Or for headless/cron use:
 
 ```bash
 claude -p "@research run the research cycle"
+claude -p "@research run meta-news"
 ```
 
 ## feed.py Reference
 
 ```bash
+# Core
 python feed.py init <feed_id> --name "..." --description "..."
-python feed.py add <feed_id> --title "..." --content "<p>...</p>" --sources "url1,url2"
+python feed.py add <feed_id> --title "..." --content "<p>...</p>" --sources "url1,url2" --run-id "..."
 python feed.py prune <feed_id> --keep 30
 python feed.py list <feed_id>
 python feed.py state <feed_id>
+
+# Knowledge
+python feed.py knowledge <feed_id>
+python feed.py learn <feed_id> --brief "..." --entities "e1,e2" --threads '<json>'
+
+# Operations
+python feed.py status
+python feed.py rollback <feed_id>
+python feed.py log <feed_id> --started "..." --finished "..." --entries-added 4
+
+# Discoverability
+python feed.py opml --base-url "https://..."
+python feed.py index-html --base-url "https://..."
 ```
