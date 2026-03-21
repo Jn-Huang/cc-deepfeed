@@ -68,18 +68,20 @@ def save_state(state, state_path):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 
-def init_feed(feed_id, name, description, feeds_dir):
+def init_feed(feed_id, name, description, feeds_dir, base_url=None):
     """Create a new empty RSS feed XML file. No-op if feed already exists."""
     path = feeds_dir / f"{feed_id}.xml"
     if path.exists():
         print(f"Feed already exists: {path}")
         return
 
+    link = f"{base_url.rstrip('/')}/{feed_id}.xml" if base_url else f"https://example.com/{feed_id}.xml"
+
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = name
     ET.SubElement(channel, "description").text = description
-    ET.SubElement(channel, "link").text = f"file://rss-research/feeds/{feed_id}.xml"
+    ET.SubElement(channel, "link").text = link
     ET.SubElement(channel, "lastBuildDate").text = rfc822()
     ET.SubElement(channel, "generator").text = "rss-research via Claude Code"
 
