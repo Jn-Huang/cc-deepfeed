@@ -4,10 +4,19 @@ Deep research briefings delivered as RSS feeds.
 
 ## How It Works
 
-- `config.yaml` defines topics in plain English
+- `config.yaml` defines topics in plain English (each with its own state + knowledge memory)
 - `@research` agent searches, synthesizes, and writes RSS entries
-- `feed.py` handles RSS XML generation and dedup state
-- Output goes to `feeds/*.xml` — standard RSS 2.0, works with any reader
+- `feed.py` handles RSS XML generation and per-topic dedup state
+- All topics write to a single combined feed: `feeds/daily-briefings.xml`
+- Each entry gets a `<category>` tag with its topic ID
+- `publish.sh` pushes to GitHub Pages (gh-pages branch) and pings WebSub hub for instant Feedly updates
+
+## Architecture
+
+- **One XML, many topics:** All entries go to `daily-briefings.xml`. Per-topic config, state (`.state/<topic>.json`), and knowledge memory are separate.
+- **WebSub:** Feed declares a PubSubHubbub hub. `publish.sh` pings `pubsubhubbub.appspot.com` after each push so Feedly re-fetches immediately (without this, free-tier Feedly polls as rarely as once/day for low-subscriber feeds).
+- **Scheduling:** macOS launchd (`com.jimmy.rss-research`) runs daily at 9:07 AM via `claude -p "@research run the research cycle"`.
+- **Remote:** Uses SSH (`git@github.com:...`) for auth in headless/cron contexts (HTTPS + osxkeychain doesn't work from launchd).
 
 ## Usage
 
