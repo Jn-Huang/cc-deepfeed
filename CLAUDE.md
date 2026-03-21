@@ -29,10 +29,10 @@ claude -p "@research run meta-news"
 ## feed.py Reference
 
 ```bash
-# Core
-python feed.py init <feed_id> --name "..." --description "..."
+# Core (single combined feed, per-topic state)
+python feed.py init --name "Daily Briefings" --description "..."
 python feed.py add <feed_id> --title "..." --content "<p>...</p>" --sources "url1,url2" --run-id "..."
-python feed.py prune <feed_id> --keep 30
+python feed.py prune --keep 50
 python feed.py list <feed_id>
 python feed.py state <feed_id>
 

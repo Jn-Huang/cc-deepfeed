@@ -110,15 +110,15 @@ Don't force thread connections where they don't exist. Only reference threads wh
 
 ### 4. Add entries via feed.py
 
-First, ensure the feed XML exists:
+First, ensure the combined feed XML exists:
 ```bash
-python feed.py init <feed_id> --name "Feed Name" --description "..."
+python feed.py init --name "Daily Briefings" --description "Deep research briefings on AI, tech, sports, and local news"
 ```
-(Safe to run if feed already exists — only creates if missing.)
+(Safe to run if feed already exists — only creates if missing. All topics share one feed.)
 
 Generate a **run ID** at the start of processing each feed (use the current UTC timestamp, e.g., `date -u +%Y-%m-%dT%H:%M:%SZ`). Pass it to every `add` call for that feed — this groups entries for rollback.
 
-Then add each entry:
+Then add each entry (note: `feed_id` is used for per-topic state and `<category>` tagging, but all entries go into the same combined XML):
 ```bash
 python feed.py add <feed_id> \
   --title "Specific Informative Title" \
@@ -131,9 +131,9 @@ python feed.py add <feed_id> \
 
 After adding entries, prune to the configured max:
 ```bash
-python feed.py prune <feed_id> --keep 30
+python feed.py prune --keep 50
 ```
-Use the `max_entries` value from config settings.
+Use the `max_entries` value from config settings. This prunes the combined feed across all topics.
 
 ### 6. Update knowledge
 

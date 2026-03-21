@@ -58,9 +58,6 @@ git stash pop -q 2>/dev/null || true
 rm -rf "$TMPDIR"
 
 # Ping WebSub hub so feed readers (Feedly etc.) fetch updates immediately
-for xml in "$FEEDS_DIR"/*.xml; do
-    feed_name=$(basename "$xml")
-    curl -s -o /dev/null -X POST "https://pubsubhubbub.appspot.com/" \
-        -d "hub.mode=publish&hub.url=https://xingjianz.com/rss-research/$feed_name" || true
-done
+curl -s -o /dev/null -X POST "https://pubsubhubbub.appspot.com/" \
+    -d "hub.mode=publish&hub.url=https://xingjianz.com/rss-research/daily-briefings.xml" || true
 echo "Pinged WebSub hub."

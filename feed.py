@@ -12,6 +12,9 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
+COMBINED_FEED = "daily-briefings"
+
+
 def load_config():
     """Load config.yaml and return settings + feeds."""
     import yaml
@@ -68,14 +71,22 @@ def save_state(state, state_path):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 
-def init_feed(feed_id, name, description, feeds_dir, base_url=None):
-    """Create a new empty RSS feed XML file. No-op if feed already exists."""
-    path = feeds_dir / f"{feed_id}.xml"
+def feed_path(feeds_dir):
+    """Return the path to the combined feed XML."""
+    return feeds_dir / f"{COMBINED_FEED}.xml"
+
+
+def init_feed(name, description, feeds_dir, base_url=None):
+    """Create the combined RSS feed XML file. No-op if it already exists."""
+    path = feed_path(feeds_dir)
     if path.exists():
         print(f"Feed already exists: {path}")
         return
 
-    link = f"{base_url.rstrip('/')}/{feed_id}.xml" if base_url else f"https://example.com/{feed_id}.xml"
+    link = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml" if base_url else f"https://example.com/{COMBINED_FEED}.xml"
+
+    ATOM_NS = "http://www.w3.org/2005/Atom"
+    ET.register_namespace("atom", ATOM_NS)
 
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
@@ -85,16 +96,27 @@ def init_feed(feed_id, name, description, feeds_dir, base_url=None):
     ET.SubElement(channel, "lastBuildDate").text = rfc822()
     ET.SubElement(channel, "generator").text = "rss-research via Claude Code"
 
+    # WebSub hub for instant Feedly notifications
+    if base_url:
+        feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
+        hub = ET.SubElement(channel, f"{{{ATOM_NS}}}link")
+        hub.set("rel", "hub")
+        hub.set("href", "https://pubsubhubbub.appspot.com")
+        self_link = ET.SubElement(channel, f"{{{ATOM_NS}}}link")
+        self_link.set("rel", "self")
+        self_link.set("href", feed_url)
+        self_link.set("type", "application/rss+xml")
+
     tree = ET.ElementTree(rss)
     write_xml(tree, path)
     print(f"Initialized feed: {path}")
 
 
 def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_id=None):
-    """Add an entry to an existing feed and update state."""
-    path = feeds_dir / f"{feed_id}.xml"
+    """Add an entry to the combined feed and update per-topic state."""
+    path = feed_path(feeds_dir)
     if not path.exists():
-        print(f"Error: Feed {feed_id} not found. Run init first.", file=sys.stderr)
+        print(f"Error: Combined feed not found. Run init first.", file=sys.stderr)
         sys.exit(1)
 
     tree = ET.parse(path)
@@ -125,6 +147,7 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_i
     ET.SubElement(item, "description").text = body
     ET.SubElement(item, "guid", isPermaLink="false").text = guid
     ET.SubElement(item, "pubDate").text = rfc822(now)
+    ET.SubElement(item, "category").text = feed_id
     if source_list:
         ET.SubElement(item, "link").text = source_list[0]
 
@@ -196,27 +219,26 @@ def load_state(feed_id, state_dir):
     return state
 
 
-def prune_feed(feed_id, keep, feeds_dir, state_dir):
-    """Remove oldest entries beyond `keep` count."""
-    path = feeds_dir / f"{feed_id}.xml"
+def prune_feed(keep, feeds_dir, state_dir):
+    """Remove oldest entries beyond `keep` count from combined feed."""
+    path = feed_path(feeds_dir)
     if not path.exists():
-        print(f"Feed {feed_id} not found.", file=sys.stderr)
+        print(f"Combined feed not found.", file=sys.stderr)
         sys.exit(1)
 
     tree = ET.parse(path)
     root = tree.getroot()
     channel = root.find("channel")
     if channel is None:
-        print(f"Error: Invalid feed XML for {feed_id}.", file=sys.stderr)
+        print(f"Error: Invalid feed XML.", file=sys.stderr)
         sys.exit(1)
     items = channel.findall("item")
 
     if len(items) <= keep:
-        print(f"Feed {feed_id} has {len(items)} entries (limit: {keep}), no pruning needed.")
+        print(f"Feed has {len(items)} entries (limit: {keep}), no pruning needed.")
         return
 
     # Items are in document order (newest last since we append).
-    # Remove oldest (first in list) until we're at `keep`.
     to_remove = items[:len(items) - keep]
     removed_guids = set()
     for item in to_remove:
@@ -227,16 +249,17 @@ def prune_feed(feed_id, keep, feeds_dir, state_dir):
 
     write_xml(tree, path)
 
-    # Clean state too
+    # Clean all state files
     if removed_guids:
-        state_path = state_dir / f"{feed_id}.json"
-        if state_path.exists():
-            with open(state_path) as f:
+        for state_file in state_dir.glob("*.json"):
+            with open(state_file) as f:
                 state = json.load(f)
-            state["entries"] = [e for e in state["entries"] if e.get("guid") not in removed_guids]
-            save_state(state, state_path)
+            before = len(state.get("entries", []))
+            state["entries"] = [e for e in state.get("entries", []) if e.get("guid") not in removed_guids]
+            if len(state["entries"]) < before:
+                save_state(state, state_file)
 
-    print(f"Pruned {len(to_remove)} entries from {feed_id}, kept {keep}.")
+    print(f"Pruned {len(to_remove)} entries, kept {keep}.")
 
 
 def rollback_feed(feed_id, feeds_dir, state_dir):
@@ -265,9 +288,9 @@ def rollback_feed(feed_id, feeds_dir, state_dir):
         print(f"No entries found for rollback in {feed_id}.")
         return
 
-    # Remove from XML
+    # Remove from combined XML
     guids_to_remove = {e["guid"] for e in to_remove}
-    path = feeds_dir / f"{feed_id}.xml"
+    path = feed_path(feeds_dir)
     if path.exists():
         tree = ET.parse(path)
         root = tree.getroot()
@@ -383,8 +406,8 @@ def show_status(config):
         else:
             lr_display = "never"
 
-        feed_path = feeds_dir / f"{feed_id}.xml"
-        if not feed_path.exists():
+        combined = feed_path(feeds_dir)
+        if not combined.exists():
             health = "NO XML"
         elif delta is None:
             health = "NEW"
@@ -418,26 +441,25 @@ def log_run(feed_id, log_data):
 
 
 def generate_opml(config, base_url):
-    """Generate an OPML file listing all feeds."""
+    """Generate an OPML file for the combined feed."""
     feeds_dir, _ = get_dirs(config)
-    feeds = config.get("feeds", [])
+    settings = config.get("settings", {})
+    feed_name = settings.get("feed_name", "Daily Briefings")
 
     opml = ET.Element("opml", version="2.0")
     head = ET.SubElement(opml, "head")
-    ET.SubElement(head, "title").text = "rss-research feeds"
+    ET.SubElement(head, "title").text = feed_name
     ET.SubElement(head, "dateCreated").text = rfc822()
 
+    feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
     body = ET.SubElement(opml, "body")
-    for feed_cfg in feeds:
-        feed_id = feed_cfg["id"]
-        feed_url = f"{base_url.rstrip('/')}/{feed_id}.xml"
-        ET.SubElement(body, "outline",
-            type="rss",
-            text=feed_cfg.get("name", feed_id),
-            title=feed_cfg.get("name", feed_id),
-            xmlUrl=feed_url,
-            htmlUrl=base_url,
-        )
+    ET.SubElement(body, "outline",
+        type="rss",
+        text=feed_name,
+        title=feed_name,
+        xmlUrl=feed_url,
+        htmlUrl=base_url,
+    )
 
     tree = ET.ElementTree(opml)
     opml_path = feeds_dir / "index.opml"
@@ -446,9 +468,20 @@ def generate_opml(config, base_url):
 
 
 def generate_index_html(config, base_url):
-    """Generate a simple index.html listing all feeds with subscribe links."""
+    """Generate a simple index.html for the combined feed."""
     feeds_dir, state_dir = get_dirs(config)
     feeds = config.get("feeds", [])
+    settings = config.get("settings", {})
+    feed_name = settings.get("feed_name", "Daily Briefings")
+    feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
+
+    # Count total entries across all topics
+    total_entries = 0
+    for feed_cfg in feeds:
+        state = load_state(feed_cfg["id"], state_dir)
+        total_entries += len(state.get("entries", []))
+
+    topic_list = ", ".join(feed_cfg.get("name", feed_cfg["id"]) for feed_cfg in feeds)
 
     parts = [
         '<!DOCTYPE html>',
@@ -456,54 +489,31 @@ def generate_index_html(config, base_url):
         '<head>',
         '  <meta charset="utf-8">',
         '  <meta name="viewport" content="width=device-width, initial-scale=1">',
-        '  <title>rss-research feeds</title>',
+        f'  <title>{html.escape(feed_name)}</title>',
         '  <style>',
         '    body { font-family: -apple-system, system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }',
         '    h1 { border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }',
-        '    .feed { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
-        '    .feed h2 { margin: 0 0 0.5rem 0; font-size: 1.2rem; }',
-        '    .feed p { margin: 0.5rem 0; color: #666; font-size: 0.9rem; }',
-        '    .feed .links a { color: #0066cc; text-decoration: none; font-size: 0.9rem; }',
-        '    .feed .links a:hover { text-decoration: underline; }',
+        '    .subscribe { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
+        '    .subscribe a { color: #0066cc; text-decoration: none; font-weight: bold; }',
+        '    .subscribe a:hover { text-decoration: underline; }',
+        '    .topics { margin: 1rem 0; color: #666; font-size: 0.9rem; }',
         '    .meta { color: #999; font-size: 0.85rem; margin-top: 0.5rem; }',
         '    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #999; font-size: 0.85rem; }',
         '  </style>',
         '</head>',
         '<body>',
-        '  <h1>rss-research feeds</h1>',
-        '  <p>Deep research briefings delivered as RSS feeds.</p>',
-        f'  <p><a href="{base_url.rstrip("/")}/index.opml">Import all feeds (OPML)</a></p>',
-    ]
-
-    for feed_cfg in feeds:
-        feed_id = feed_cfg["id"]
-        name = html.escape(feed_cfg.get("name", feed_id))
-        desc = html.escape(feed_cfg.get("description", "").strip().split("\n")[0])
-        feed_url = f"{base_url.rstrip('/')}/{feed_id}.xml"
-
-        state = load_state(feed_id, state_dir)
-        entry_count = len(state.get("entries", []))
-        last_run = state.get("last_run", "never")
-        if last_run != "never":
-            try:
-                last_run = datetime.fromisoformat(last_run).strftime("%Y-%m-%d")
-            except (ValueError, TypeError):
-                pass
-
-        parts.extend([
-            '  <div class="feed">',
-            f'    <h2>{name}</h2>',
-            f'    <p>{desc}</p>',
-            f'    <div class="links"><a href="{feed_url}">RSS Feed</a></div>',
-            f'    <div class="meta">{entry_count} entries &middot; last updated {last_run}</div>',
-            '  </div>',
-        ])
-
-    parts.extend([
-        f'  <footer>Generated by rss-research &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</footer>',
+        f'  <h1>{html.escape(feed_name)}</h1>',
+        '  <p>Deep research briefings delivered as a single RSS feed.</p>',
+        '  <div class="subscribe">',
+        f'    <a href="{feed_url}">Subscribe via RSS</a>',
+        f'    &middot; <a href="{base_url.rstrip("/")}/index.opml">Import (OPML)</a>',
+        '  </div>',
+        f'  <div class="topics"><strong>Topics:</strong> {html.escape(topic_list)}</div>',
+        f'  <div class="meta">{total_entries} entries &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</div>',
+        f'  <footer>Generated by rss-research</footer>',
         '</body>',
         '</html>',
-    ])
+    ]
 
     index_path = feeds_dir / "index.html"
     with open(index_path, "w") as f:
@@ -516,8 +526,7 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     # init
-    p_init = sub.add_parser("init", help="Initialize a new feed")
-    p_init.add_argument("feed_id")
+    p_init = sub.add_parser("init", help="Initialize the combined feed")
     p_init.add_argument("--name", required=True)
     p_init.add_argument("--description", default="")
 
@@ -530,9 +539,8 @@ def main():
     p_add.add_argument("--run-id", default=None, help="Run identifier for rollback grouping")
 
     # prune
-    p_prune = sub.add_parser("prune", help="Prune old entries")
-    p_prune.add_argument("feed_id")
-    p_prune.add_argument("--keep", type=int, default=30)
+    p_prune = sub.add_parser("prune", help="Prune old entries from combined feed")
+    p_prune.add_argument("--keep", type=int, default=50)
 
     # list
     p_list = sub.add_parser("list", help="List entries in a feed")
@@ -585,11 +593,11 @@ def main():
     feeds_dir, state_dir = get_dirs(config)
 
     if args.command == "init":
-        init_feed(args.feed_id, args.name, args.description, feeds_dir)
+        init_feed(args.name, args.description, feeds_dir)
     elif args.command == "add":
         add_entry(args.feed_id, args.title, args.content, split_csv(args.sources), feeds_dir, state_dir, run_id=args.run_id)
     elif args.command == "prune":
-        prune_feed(args.feed_id, args.keep, feeds_dir, state_dir)
+        prune_feed(args.keep, feeds_dir, state_dir)
     elif args.command == "list":
         list_entries(args.feed_id, feeds_dir, state_dir)
     elif args.command == "state":
