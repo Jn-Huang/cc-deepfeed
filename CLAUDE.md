@@ -1,6 +1,6 @@
-# rss-research
+# cc-deepfeed
 
-Deep research briefings delivered as RSS feeds.
+Deep research briefings delivered as RSS feeds, powered by Claude Code.
 
 ## How It Works
 
@@ -9,7 +9,7 @@ Deep research briefings delivered as RSS feeds.
 - Feeds are per-user — each subscribes to a set of topics
 - `@research` orchestrator spawns parallel workers (one per topic)
 - `feed.py add` automatically distributes entries to all subscriber feeds
-- `publish.sh` pushes to GitHub Pages (gh-pages branch) and pings WebSub hub
+- `publish.sh` pushes to GitHub Pages (gh-pages branch) and pings WebSub hub (if configured)
 
 ## Architecture
 
@@ -18,8 +18,8 @@ Deep research briefings delivered as RSS feeds.
 - **File locking:** `feed.py` uses `fcntl.flock` to safely handle concurrent XML writes from parallel workers.
 - **Per-topic targets:** Each topic has a `target` field specifying how many entries to aim for per run.
 - **Model selection:** Each topic can set `model: sonnet` for cheaper factual work; defaults to Opus.
-- **WebSub:** Feeds declare a PubSubHubbub hub. `publish.sh` pings `pubsubhubbub.appspot.com` for all XMLs after each push.
-- **Scheduling:** macOS launchd (`com.jimmy.rss-research`) runs daily at 9:07 AM via `claude -p "@research run the research cycle"`.
+- **WebSub:** Optional. Set `websub_hub` in config settings. `publish.sh` pings the hub for all XMLs after each push.
+- **Scheduling:** See `docs/scheduling.md` for launchd, cron, and systemd templates.
 - **Remote:** Uses SSH (`git@github.com:...`) for auth in headless/cron contexts.
 
 ## Usage
@@ -28,7 +28,7 @@ Run the research cycle by invoking the agent:
 
 ```
 @research                    # all topics, all feeds
-@research meta-news          # single topic
+@research ai-research        # single topic
 @research --dry-run          # preview without writing
 ```
 
@@ -37,6 +37,12 @@ Or for headless/cron use:
 ```bash
 claude -p "@research run the research cycle"
 ```
+
+## Configuration
+
+Copy `config.example.yaml` to `config.yaml` and customize. Full schema in `docs/config-reference.md`.
+
+Each topic needs a brief file at `.claude/agents/topics/<id>.md`. See `_template.md` for the format.
 
 ## feed.py Reference
 

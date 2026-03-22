@@ -1,115 +1,74 @@
-# rss-research
+# cc-deepfeed
 
-Deep research briefings delivered as RSS feeds, powered by Claude Code.
+**Deep research briefings delivered as RSS feeds, powered by Claude Code.**
 
-## What You Get
+You define the topics you care about. Every morning, Claude researches them — searching the web, cross-referencing sources — and writes deep briefings that show up in your reader. You control the algorithm deciding what you see. No scrolling. Just your interests, analyzed in depth. **And if you already have a Claude subscription, it costs nothing extra to run.**
 
-Open your RSS reader and see entries like:
+<p align="center">
+  <img src="docs/reeder-desktop.png" alt="Reeder on macOS" width="75%">
+</p>
+<p align="center">
+  <img src="docs/reeder-mobile-list.png" alt="Feed list on iOS" height="360">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/reeder-mobile-article.png" alt="Article view on iOS" height="360">
+</p>
 
-> **Anthropic's RLHF-v3 shows 40% reduction in reward hacking**
->
-> Anthropic published results from their third-generation RLHF pipeline, targeting the reward hacking problem that has limited deployment of RL-tuned models. The key technique is a dual-critic architecture where a second reward model acts as a check on the primary reward signal. Compared to DeepMind's constrained optimization approach from last month, this trades less helpfulness for better safety coverage...
->
-> **Sources:** [Anthropic blog](url) · [arXiv paper](url)
+## Features
 
-Not a link aggregator. Not a summarizer. Each entry is a **research briefing** — it explains what happened, why it matters, and how it connects to the bigger picture.
+**Claude Code native.** Runs entirely within Claude Code — free with your Max or Pro subscription. No API keys, no usage fees, no external services.
 
-## Setup
+**You control your feed.** Define exactly what you want researched, how deep to go, and what to skip. No recommendation algorithm deciding what you see. Your information diet, your rules.
 
-**Prerequisites:** Python 3.9+, [PyYAML](https://pypi.org/project/PyYAML/), [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+**Endlessly extensible.** AI research papers today, your university dining hall menu tomorrow, a daily deep-dive into an obscure historical fact the day after. If you can describe it, cc-deepfeed will research and write about it.
 
-```bash
-git clone https://github.com/yourusername/rss-research.git
-cd rss-research
-pip install pyyaml
-cp config.example.yaml config.yaml   # edit with your topics
-```
+**Any RSS reader.** Standard RSS 2.0 — Reeder, Feedly, NetNewsWire, Inoreader, or whatever you already use. Zero lock-in. Migrate anytime.
 
-## Config
+**Easy to configure.** One YAML file. Describe your interests in plain English. Run `make run`. That's it.
 
-Describe your interests in plain English:
+**Gets smarter over time.** Each run builds on the last — accumulated knowledge briefs, tracked story threads, entity memory. Run 10 knows everything runs 1–9 learned.
 
-```yaml
-settings:
-  feeds_dir: ./feeds
-  state_dir: ./.state
-  max_entries: 30
+## Get Started
 
-feeds:
-  - id: rl-agents
-    name: "RL Agents Research"
-    description: |
-      Latest research on reinforcement learning for autonomous agents.
-      Focus on: new papers, open-source implementations, benchmark results.
-      Skip: product announcements, beginner tutorials, hype pieces.
-    depth: deep        # quick (~200w) | standard (~400w) | deep (~600-800w)
-```
-
-No keyword arrays or structured filters. Just describe what you care about, including what to skip.
-
-## Usage
-
-### Interactive (inside Claude Code)
-
-Open Claude Code in the project directory and invoke the research agent:
-
-```
-@research
-```
-
-### Headless / cron
+**Requires:** Python 3.9+, [PyYAML](https://pypi.org/project/PyYAML/), [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 
 ```bash
-# One-off run
-claude -p "@research run the research cycle"
-
-# Daily at 8:03 AM
-crontab -e
-3 8 * * * cd ~/rss-research && claude -p "@research run the research cycle"
+git clone https://github.com/xingjian-zhang/cc-deepfeed.git
+cd cc-deepfeed && pip install pyyaml
+make setup          # creates config.yaml — edit with your topics
+make init && make run
 ```
 
-Every run researches all topics. Control frequency via cron — one knob, not two.
+Define your topics in `config.yaml` and write a [topic brief](.claude/agents/topics/_template.md) for each. See the included [examples](.claude/agents/topics/ai-research.md) or the [full config reference](docs/config-reference.md).
 
-### First run
-
-The first time a topic runs, it generates a **landscape briefing** — an overview of the current state of the field. Subsequent runs focus only on what's new.
-
-## Reading Your Feeds
-
-**Local file** (some readers support this):
-```
-file:///path/to/rss-research/feeds/rl-agents.xml
-```
-
-**Local HTTP server:**
-```bash
-python -m http.server 8080 -d feeds/
-# Then add http://localhost:8080/rl-agents.xml to your reader
-```
-
-**Any static host** — S3, Netlify, rsync to a VPS, etc.
+> **Tip:** Open Claude Code in the project directory and ask it to help you brainstorm topics, write briefs, and configure your feeds interactively.
 
 ## How It Works
 
-1. `@research` agent reads `config.yaml` for your topic definitions
-2. Checks `.state/<feed-id>.json` to know what's already been reported
-3. Searches the web from multiple angles per topic
-4. Cross-references and synthesizes findings into briefings
-5. Writes entries via `feed.py` (handles RSS XML, dedup, pruning)
-6. Updates state so the next run knows what's been covered
+1. **You define topics** in `config.yaml` with a plain-English brief for each
+2. **Claude Code runs headlessly** — a scheduled task kicks off the orchestrator via `claude -p`
+3. **Workers research in parallel** — one Claude agent per topic, searching the web from multiple angles
+4. **Briefings are written** — long-form analysis, deduplicated, distributed to your feeds
+5. **Feeds are published** to GitHub Pages (or any static host)
+6. **Knowledge carries forward** — each run builds on what previous runs learned
 
-## Project Structure
+## Commands
 
-```
-rss-research/
-├── .claude/agents/
-│   └── research.md        # The research agent (brain of the project)
-├── CLAUDE.md              # Project overview for Claude Code
-├── config.example.yaml    # Copy and customize
-├── feed.py                # RSS XML helper
-├── feeds/                 # Output XML files (gitignored)
-└── .state/                # Dedup state (gitignored)
-```
+| Command | |
+|---|---|
+| `make run` | Run full research cycle |
+| `make run-topic TOPIC=id` | Run a single topic |
+| `make status` | Dashboard of all topics and feeds |
+| `make publish` | Publish feeds to GitHub Pages |
+
+## Docs
+
+- [Configuration Reference](docs/config-reference.md) — topics, feeds, settings
+- [Publishing Guide](docs/publishing.md) — GitHub Pages, S3, WebSub
+- [Scheduling Guide](docs/scheduling.md) — cron, launchd, systemd
+
+## Disclaimer
+
+cc-deepfeed runs on [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's official CLI tool. Running it headlessly via cron or launchd is a [supported use case](https://code.claude.com/docs/en/legal-and-compliance). Anthropic's usage limits for Pro and Max plans assume ordinary, individual usage — running many topics at high frequency may count toward your plan's limits. This project is not affiliated with or endorsed by Anthropic. AI-generated content may contain inaccuracies; always verify critical information against original sources.
 
 ## License
 

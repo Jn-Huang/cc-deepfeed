@@ -58,10 +58,18 @@ git checkout "$CURRENT_BRANCH"
 git stash pop -q 2>/dev/null || true
 rm -rf "$TMPDIR"
 
-# Ping WebSub hub for all feed XMLs so feed readers (Feedly etc.) fetch updates immediately
-for xml in "$FEEDS_DIR"/*.xml; do
-    filename=$(basename "$xml")
-    curl -s -o /dev/null -X POST "https://pubsubhubbub.appspot.com/" \
-        -d "hub.mode=publish&hub.url=https://xingjianz.com/rss-research/${filename}" || true
-    echo "Pinged WebSub hub for ${filename}."
-done
+# Ping WebSub hub if configured
+WEBSUB_HUB=$(python3 -c "
+import yaml
+with open('$PROJECT_DIR/config.yaml') as f:
+    print(yaml.safe_load(f).get('settings',{}).get('websub_hub',''))
+" 2>/dev/null || true)
+
+if [ -n "$WEBSUB_HUB" ] && [ -n "$BASE_URL" ]; then
+    for xml in "$FEEDS_DIR"/*.xml; do
+        filename=$(basename "$xml")
+        curl -s -o /dev/null -X POST "$WEBSUB_HUB" \
+            -d "hub.mode=publish&hub.url=${BASE_URL}/${filename}" || true
+        echo "Pinged WebSub hub for ${filename}."
+    done
+fi

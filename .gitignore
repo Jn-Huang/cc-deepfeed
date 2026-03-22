@@ -1,6 +1,10 @@
 config.yaml
 .state/*.json
 feeds/*.xml
+feeds/*.png
+feeds/*.lock
+feeds/index.html
+feeds/index.opml
 __pycache__/
 *.pyc
 .DS_Store

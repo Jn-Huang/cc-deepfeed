@@ -110,6 +110,11 @@ fi
 # === Prune and publish ===
 echo "--- Pruning and publishing ---"
 python3 feed.py prune --keep 50
-bash publish.sh "https://xingjianz.com/rss-research"
+BASE_URL=$(python3 -c "
+import yaml
+with open('config.yaml') as f:
+    print(yaml.safe_load(f).get('settings',{}).get('base_url',''))
+")
+bash publish.sh "$BASE_URL"
 echo ""
 echo "=== Done ==="
