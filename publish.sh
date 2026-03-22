@@ -17,8 +17,8 @@ fi
 # Generate index.html and OPML if base URL is provided
 BASE_URL="${1:-}"
 if [ -n "$BASE_URL" ]; then
-    python "$PROJECT_DIR/feed.py" index-html --base-url "$BASE_URL"
-    python "$PROJECT_DIR/feed.py" opml --base-url "$BASE_URL"
+    python3 "$PROJECT_DIR/feed.py" index-html --base-url "$BASE_URL"
+    python3 "$PROJECT_DIR/feed.py" opml --base-url "$BASE_URL"
 fi
 
 # Create a temporary directory for the gh-pages content
