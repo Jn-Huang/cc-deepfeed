@@ -1,0 +1,30 @@
+settings:
+  feeds_dir: ./feeds
+  state_dir: ./.state
+  max_entries: 50
+  combined_feed: rachel-briefings
+  feed_name: "Rachel's Personalized Feed"
+  feed_description: "产品设计、健康生活、每日新闻与冷知识"
+
+feeds:
+  - id: product-design
+    name: "产品设计趋势与灵感"
+    depth: deep
+    language: zh
+
+  - id: healthy-life
+    name: "健康生活指南"
+    depth: deep
+    language: zh
+
+  - id: daily-news
+    name: "每日要闻速递"
+    depth: deep
+    language: zh
+
+  - id: random-knowledge
+    name: "每日冷知识深潜"
+    depth: deep
+    language: zh
+    sync_to:
+      - config.yaml

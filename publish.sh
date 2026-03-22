@@ -24,6 +24,7 @@ fi
 # Create a temporary directory for the gh-pages content
 TMPDIR=$(mktemp -d)
 cp "$FEEDS_DIR"/*.xml "$TMPDIR/"
+cp "$FEEDS_DIR"/*.png "$TMPDIR/" 2>/dev/null || true
 [ -f "$FEEDS_DIR/index.html" ] && cp "$FEEDS_DIR/index.html" "$TMPDIR/"
 [ -f "$FEEDS_DIR/index.opml" ] && cp "$FEEDS_DIR/index.opml" "$TMPDIR/"
 
@@ -41,7 +42,7 @@ fi
 
 # Copy feeds and commit
 cp "$TMPDIR"/* .
-git add *.xml 2>/dev/null || true
+git add *.xml *.png 2>/dev/null || true
 git add index.html index.opml 2>/dev/null || true
 if git diff --cached --quiet; then
     echo "No changes to publish."
@@ -57,7 +58,10 @@ git checkout "$CURRENT_BRANCH"
 git stash pop -q 2>/dev/null || true
 rm -rf "$TMPDIR"
 
-# Ping WebSub hub so feed readers (Feedly etc.) fetch updates immediately
-curl -s -o /dev/null -X POST "https://pubsubhubbub.appspot.com/" \
-    -d "hub.mode=publish&hub.url=https://xingjianz.com/rss-research/daily-briefings.xml" || true
-echo "Pinged WebSub hub."
+# Ping WebSub hub for all feed XMLs so feed readers (Feedly etc.) fetch updates immediately
+for xml in "$FEEDS_DIR"/*.xml; do
+    filename=$(basename "$xml")
+    curl -s -o /dev/null -X POST "https://pubsubhubbub.appspot.com/" \
+        -d "hub.mode=publish&hub.url=https://xingjianz.com/rss-research/${filename}" || true
+    echo "Pinged WebSub hub for ${filename}."
+done

@@ -12,19 +12,26 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
-COMBINED_FEED = "daily-briefings"
-
-
-def load_config():
-    """Load config.yaml and return settings + feeds."""
+def load_config(config_path=None):
+    """Load a config YAML file and return settings + feeds."""
     import yaml
 
-    config_path = Path(__file__).parent / "config.yaml"
+    if config_path is None:
+        config_path = Path(__file__).parent / "config.yaml"
+    else:
+        config_path = Path(config_path)
+        if not config_path.is_absolute():
+            config_path = Path(__file__).parent / config_path
     if not config_path.exists():
-        print("Error: config.yaml not found. Copy config.example.yaml to config.yaml", file=sys.stderr)
+        print(f"Error: {config_path} not found.", file=sys.stderr)
         sys.exit(1)
     with open(config_path) as f:
         return yaml.safe_load(f)
+
+
+def get_combined_feed(config):
+    """Return the combined feed name from config (default: daily-briefings)."""
+    return config.get("settings", {}).get("combined_feed", "daily-briefings")
 
 
 def get_dirs(config=None):
@@ -71,19 +78,19 @@ def save_state(state, state_path):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 
-def feed_path(feeds_dir):
+def feed_path(feeds_dir, combined_feed):
     """Return the path to the combined feed XML."""
-    return feeds_dir / f"{COMBINED_FEED}.xml"
+    return feeds_dir / f"{combined_feed}.xml"
 
 
-def init_feed(name, description, feeds_dir, base_url=None):
+def init_feed(name, description, feeds_dir, combined_feed, base_url=None):
     """Create the combined RSS feed XML file. No-op if it already exists."""
-    path = feed_path(feeds_dir)
+    path = feed_path(feeds_dir, combined_feed)
     if path.exists():
         print(f"Feed already exists: {path}")
         return
 
-    link = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml" if base_url else f"https://example.com/{COMBINED_FEED}.xml"
+    link = f"{base_url.rstrip('/')}/{combined_feed}.xml" if base_url else f"https://example.com/{combined_feed}.xml"
 
     ATOM_NS = "http://www.w3.org/2005/Atom"
     ET.register_namespace("atom", ATOM_NS)
@@ -98,7 +105,7 @@ def init_feed(name, description, feeds_dir, base_url=None):
 
     # WebSub hub for instant Feedly notifications
     if base_url:
-        feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
+        feed_url = f"{base_url.rstrip('/')}/{combined_feed}.xml"
         hub = ET.SubElement(channel, f"{{{ATOM_NS}}}link")
         hub.set("rel", "hub")
         hub.set("href", "https://pubsubhubbub.appspot.com")
@@ -112,9 +119,9 @@ def init_feed(name, description, feeds_dir, base_url=None):
     print(f"Initialized feed: {path}")
 
 
-def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_id=None):
+def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, combined_feed, run_id=None, image_url=None):
     """Add an entry to the combined feed and update per-topic state."""
-    path = feed_path(feeds_dir)
+    path = feed_path(feeds_dir, combined_feed)
     if not path.exists():
         print(f"Error: Combined feed not found. Run init first.", file=sys.stderr)
         sys.exit(1)
@@ -133,6 +140,11 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_i
     # Normalize sources to list once
     source_list = sources if isinstance(sources, list) else split_csv(sources or "")
 
+    # Prepend image if provided
+    if image_url:
+        escaped_img = html.escape(image_url)
+        content_html = f'<figure><img src="{escaped_img}" alt="{html.escape(title)}" style="max-width:100%;height:auto;" /></figure>\n' + content_html
+
     # Build content with sources
     body = content_html
     if source_list:
@@ -150,6 +162,8 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_i
     ET.SubElement(item, "category").text = feed_id
     if source_list:
         ET.SubElement(item, "link").text = source_list[0]
+    if image_url:
+        ET.SubElement(item, "enclosure", url=image_url, type="image/jpeg", length="0")
 
     # Update lastBuildDate
     last_build = channel.find("lastBuildDate")
@@ -166,7 +180,17 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, run_i
         "fingerprints": extract_fingerprints(title, content_html),
     }, run_id=run_id)
 
-    print(f"Added entry to {feed_id}: {title}")
+    # Report word count so the agent can self-correct if too short
+    import re
+    text_only = re.sub(r'<[^>]+>', '', content_html).strip()
+    char_count = len(text_only)
+    # For Chinese text: count CJK characters individually, non-CJK by spaces
+    cjk_chars = len(re.findall(r'[\u4e00-\u9fff\u3400-\u4dbf]', text_only))
+    non_cjk = re.sub(r'[\u4e00-\u9fff\u3400-\u4dbf]', ' ', text_only)
+    en_words = len(non_cjk.split())
+    # ~1.5 CJK chars ≈ 1 English word
+    equiv_words = int(cjk_chars / 1.5) + en_words
+    print(f"Added entry to {feed_id}: {title} (~{equiv_words} words equivalent, {char_count} chars)")
 
 
 def extract_fingerprints(title, _content):
@@ -194,6 +218,11 @@ def update_state(feed_id, state_dir, entry_record, run_id=None):
     now = datetime.now(timezone.utc).isoformat()
     state["last_run"] = now
     entry_record["run_id"] = run_id or now
+    # Dedup: skip if guid already present (e.g., sync_to wrote the same entry)
+    existing_guids = {e.get("guid") for e in state.get("entries", [])}
+    if entry_record.get("guid") in existing_guids:
+        save_state(state, state_path)
+        return
     state["entries"].append(entry_record)
     # Keep only last 100 entries in state for memory
     state["entries"] = state["entries"][-100:]
@@ -219,9 +248,9 @@ def load_state(feed_id, state_dir):
     return state
 
 
-def prune_feed(keep, feeds_dir, state_dir):
+def prune_feed(keep, feeds_dir, state_dir, combined_feed):
     """Remove oldest entries beyond `keep` count from combined feed."""
-    path = feed_path(feeds_dir)
+    path = feed_path(feeds_dir, combined_feed)
     if not path.exists():
         print(f"Combined feed not found.", file=sys.stderr)
         sys.exit(1)
@@ -262,7 +291,7 @@ def prune_feed(keep, feeds_dir, state_dir):
     print(f"Pruned {len(to_remove)} entries, kept {keep}.")
 
 
-def rollback_feed(feed_id, feeds_dir, state_dir):
+def rollback_feed(feed_id, feeds_dir, state_dir, combined_feed):
     """Remove entries from the most recent run."""
     state = load_state(feed_id, state_dir)
     entries = state.get("entries", [])
@@ -279,18 +308,17 @@ def rollback_feed(feed_id, feeds_dir, state_dir):
         # Pre-run_id entries: fall back to date-based grouping
         target_date = last_entry.get("date")
         to_remove = [e for e in entries if e.get("date") == target_date]
-        remaining = [e for e in entries if e.get("date") != target_date]
     else:
         to_remove = [e for e in entries if e.get("run_id") == target_run_id]
-        remaining = [e for e in entries if e.get("run_id") != target_run_id]
 
     if not to_remove:
         print(f"No entries found for rollback in {feed_id}.")
         return
 
-    # Remove from combined XML
+    # Remove from combined XML — only remove entries actually present in this feed's XML
     guids_to_remove = {e["guid"] for e in to_remove}
-    path = feed_path(feeds_dir)
+    actually_removed = set()
+    path = feed_path(feeds_dir, combined_feed)
     if path.exists():
         tree = ET.parse(path)
         root = tree.getroot()
@@ -300,14 +328,20 @@ def rollback_feed(feed_id, feeds_dir, state_dir):
                 guid_el = item.find("guid")
                 if guid_el is not None and guid_el.text in guids_to_remove:
                     channel.remove(item)
+                    actually_removed.add(guid_el.text)
             write_xml(tree, path)
 
-    # Update state
-    state["entries"] = remaining
+    if not actually_removed:
+        print(f"No entries found in {combined_feed}.xml to roll back for {feed_id}.")
+        return
+
+    # Only remove from state the entries that were actually in this XML
+    state["entries"] = [e for e in entries if e.get("guid") not in actually_removed]
     save_state(state, state_dir / f"{feed_id}.json")
 
-    print(f"Rolled back {len(to_remove)} entries from {feed_id}:")
-    for e in to_remove:
+    rolled = [e for e in to_remove if e["guid"] in actually_removed]
+    print(f"Rolled back {len(rolled)} entries from {feed_id}:")
+    for e in rolled:
         print(f"  - {e['title']}")
 
 
@@ -406,7 +440,7 @@ def show_status(config):
         else:
             lr_display = "never"
 
-        combined = feed_path(feeds_dir)
+        combined = feed_path(feeds_dir, get_combined_feed(config))
         if not combined.exists():
             health = "NO XML"
         elif delta is None:
@@ -451,7 +485,8 @@ def generate_opml(config, base_url):
     ET.SubElement(head, "title").text = feed_name
     ET.SubElement(head, "dateCreated").text = rfc822()
 
-    feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
+    combined_feed = get_combined_feed(config)
+    feed_url = f"{base_url.rstrip('/')}/{combined_feed}.xml"
     body = ET.SubElement(opml, "body")
     ET.SubElement(body, "outline",
         type="rss",
@@ -473,7 +508,8 @@ def generate_index_html(config, base_url):
     feeds = config.get("feeds", [])
     settings = config.get("settings", {})
     feed_name = settings.get("feed_name", "Daily Briefings")
-    feed_url = f"{base_url.rstrip('/')}/{COMBINED_FEED}.xml"
+    combined_feed = get_combined_feed(config)
+    feed_url = f"{base_url.rstrip('/')}/{combined_feed}.xml"
 
     # Count total entries across all topics
     total_entries = 0
@@ -523,6 +559,7 @@ def generate_index_html(config, base_url):
 
 def main():
     parser = argparse.ArgumentParser(description="RSS feed helper for rss-research")
+    parser.add_argument("--config", default="config.yaml", help="Path to config file (default: config.yaml)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # init
@@ -536,7 +573,9 @@ def main():
     p_add.add_argument("--title", required=True)
     p_add.add_argument("--content", required=True, help="HTML content of the entry")
     p_add.add_argument("--sources", default="", help="Comma-separated source URLs")
+    p_add.add_argument("--image", default=None, help="URL of an image to include as figure and enclosure")
     p_add.add_argument("--run-id", default=None, help="Run identifier for rollback grouping")
+    p_add.add_argument("--sync-to", default=None, help="Comma-separated config paths to also write this entry to")
 
     # prune
     p_prune = sub.add_parser("prune", help="Prune old entries from combined feed")
@@ -589,15 +628,32 @@ def main():
     p_index.add_argument("--base-url", required=True, help="Base URL where feeds are hosted")
 
     args = parser.parse_args()
-    config = load_config()
+    config = load_config(args.config)
     feeds_dir, state_dir = get_dirs(config)
+    combined_feed = get_combined_feed(config)
 
     if args.command == "init":
-        init_feed(args.name, args.description, feeds_dir)
+        init_feed(args.name, args.description, feeds_dir, combined_feed)
     elif args.command == "add":
-        add_entry(args.feed_id, args.title, args.content, split_csv(args.sources), feeds_dir, state_dir, run_id=args.run_id)
+        sources = split_csv(args.sources)
+        add_entry(args.feed_id, args.title, args.content, sources, feeds_dir, state_dir,
+                  combined_feed, run_id=args.run_id, image_url=args.image)
+        # Sync to other configs if requested
+        if args.sync_to:
+            for sync_config_path in split_csv(args.sync_to):
+                sync_config = load_config(sync_config_path)
+                sync_feeds_dir, sync_state_dir = get_dirs(sync_config)
+                sync_combined = get_combined_feed(sync_config)
+                # Auto-init target feed if it doesn't exist
+                sync_path = feed_path(sync_feeds_dir, sync_combined)
+                if not sync_path.exists():
+                    sync_name = sync_config.get("settings", {}).get("feed_name", "Briefings")
+                    sync_desc = sync_config.get("settings", {}).get("feed_description", "")
+                    init_feed(sync_name, sync_desc, sync_feeds_dir, sync_combined)
+                add_entry(args.feed_id, args.title, args.content, sources, sync_feeds_dir,
+                          sync_state_dir, sync_combined, run_id=args.run_id, image_url=args.image)
     elif args.command == "prune":
-        prune_feed(args.keep, feeds_dir, state_dir)
+        prune_feed(args.keep, feeds_dir, state_dir, combined_feed)
     elif args.command == "list":
         list_entries(args.feed_id, feeds_dir, state_dir)
     elif args.command == "state":
@@ -608,7 +664,7 @@ def main():
         entities = split_csv(args.entities) or None
         update_knowledge(args.feed_id, state_dir, args.brief, entities, args.threads)
     elif args.command == "rollback":
-        rollback_feed(args.feed_id, feeds_dir, state_dir)
+        rollback_feed(args.feed_id, feeds_dir, state_dir, combined_feed)
     elif args.command == "status":
         show_status(config)
     elif args.command == "log":
