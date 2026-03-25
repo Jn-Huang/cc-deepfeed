@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:ns0="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <title>Jn-Huang's Daily Briefings</title>
+    <description>AI, tech, science, finance, and world news — quick summaries powered by Claude</description>
+    <link>https://jn-huang.github.io/cc-deepfeed/daily-briefings.xml</link>
+    <lastBuildDate>Wed, 25 Mar 2026 13:58:28 +0000</lastBuildDate>
+    <generator>cc-deepfeed</generator>
+    <ns0:link rel="self" href="https://jn-huang.github.io/cc-deepfeed/daily-briefings.xml" type="application/rss+xml" />
+    <item>
+      <title>Fed Holds Rates at 3.5-3.75%, Projects Only One Cut in 2026 Amid Elevated Uncertainty</title>
+      <description>&lt;figure&gt;&lt;img src="https://www.federalreserve.gov/images/social-media/social-default-image-opengraph.jpg" alt="Fed Holds Rates at 3.5-3.75%, Projects Only One Cut in 2026 Amid Elevated Uncertainty" style="max-width:100%;height:auto;" /&gt;&lt;/figure&gt;
+&lt;p&gt;The Federal Reserve held the federal funds rate steady at &lt;strong&gt;3.5% to 3.75%&lt;/strong&gt; at its March 17-18 meeting — the second consecutive pause. The decision was nearly unanimous, with one dissent from Governor Stephen Miran, who pushed for a quarter-point cut.&lt;/p&gt;
+
+&lt;p&gt;The FOMC's updated projections tell the story: GDP growth for 2026 was nudged up to 2.4% (from 2.3% in December), but core PCE inflation was revised higher to 2.7% (from 2.5%). The median dot plot still shows just one rate cut this year — a hawkish hold that reflects the Fed's struggle to reconcile solid growth with sticky inflation.&lt;/p&gt;
+
+&lt;p&gt;The statement flagged "elevated uncertainty" about the economic outlook, pointing specifically to the Middle East conflict as a wild card for the U.S. economy. With Brent crude recently hovering near $100 on shifting ceasefire talk headlines, energy prices remain a key inflation variable the Fed can't control.&lt;/p&gt;
+
+&lt;p&gt;Markets have largely adjusted. Expectations for 2026 rate cuts have evaporated in the U.S., and European counterparts (ECB, Bank of England) are now leaning toward hikes. The S&amp;P 500 added 1.2% on March 25 as traders parsed US-Iran diplomatic signals, while 10-year Treasury yields edged down 3 basis points to 4.33%.&lt;/p&gt;
+
+&lt;p&gt;Next data point to watch: February durable goods orders, due out today, which will signal whether manufacturing is holding up under the current rate environment.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm"&gt;https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://www.federalreserve.gov/monetarypolicy/fomcprojtabl20260318.htm"&gt;https://www.federalreserve.gov/monetarypolicy/fomcprojtabl20260318.htm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://www.bloomberg.com/news/articles/2026-03-24/stock-market-today-dow-s-p-live-updates"&gt;https://www.bloomberg.com/news/articles/2026-03-24/stock-market-today-dow-s-p-live-updates&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">4b181fc7-2ca2-5d5d-9da2-dc88201e8f9e</guid>
+      <pubDate>Wed, 25 Mar 2026 13:58:28 +0000</pubDate>
+      <category>finance</category>
+      <link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm</link>
+      <enclosure url="https://www.federalreserve.gov/images/social-media/social-default-image-opengraph.jpg" type="image/jpeg" length="0" />
+    </item>
+  </channel>
+</rss>
