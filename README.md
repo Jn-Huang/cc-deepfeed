@@ -41,15 +41,22 @@ git clone https://github.com/xingjian-zhang/cc-deepfeed.git
 cd cc-deepfeed && pip install pyyaml
 ```
 
-Then open Claude Code in the project directory and run `/setup` — it checks your environment, creates your config, helps you write topic briefs, and initializes your feeds interactively.
+Then open Claude Code in the project directory and run:
 
-Or set up manually:
+> **`/setup`** — the interactive setup wizard. It checks your environment, creates your config, helps you write topic briefs, and initializes your feeds — all in one go.
+
+<details>
+<summary>Or set up manually</summary>
 
 ```bash
 make setup          # creates config.yaml from example
 # Edit config.yaml with your topics and base_url, then:
 make init && make run
 ```
+
+Define your topics in `config.yaml` and write a [topic brief](.claude/agents/topics/_template.md) for each. See the [full config reference](docs/config-reference.md).
+
+</details>
 
 See the **[Getting Started Guide](docs/getting-started.md)** for a full walkthrough from clone to first published feed.
 
