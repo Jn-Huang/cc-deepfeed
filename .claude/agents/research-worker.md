@@ -159,9 +159,11 @@ python feed.py add <feed_id> \
   --content "<p>Your HTML briefing content here...</p>" \
   --sources "https://source1.com,https://source2.com" \
   --image "https://example.com/article-hero.jpg" \
+  --pub-date "2026-03-25" \
   --run-id "<run_id>"
 ```
-The `--image` flag sets the RSS `<enclosure>` for reader thumbnails — it does NOT insert any figure into the content. To include images in the entry body, embed `<figure>` tags directly in your `--content` HTML at the appropriate locations.
+- The `--image` flag sets the RSS `<enclosure>` for reader thumbnails — it does NOT insert any figure into the content. To include images in the entry body, embed `<figure>` tags directly in your `--content` HTML at the appropriate locations.
+- The `--pub-date` flag records the **original article/paper publication date** (ISO 8601, e.g. `2026-03-25`). This is **required** — always determine and pass the date the source material was published. This is distinct from the RSS pubDate (which is always the retrieval time).
 
 **Auto-distribution:** `feed.py add` automatically writes the entry to ALL user feeds that subscribe to this topic. No extra flags needed — just call `add` with the topic ID and the config handles the rest.
 

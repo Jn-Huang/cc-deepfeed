@@ -7,7 +7,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FEEDS_DIR="$PROJECT_DIR/feeds"
-PYTHON="${PYTHON:-python3}"
+run_python() { uv run python3 "$@"; }
 
 # --- Phase 1: Early exit if nothing to publish ---
 shopt -s nullglob
@@ -22,8 +22,8 @@ fi
 # --- Phase 2: Generate index files if base URL provided ---
 BASE_URL="${1:-}"
 if [ -n "$BASE_URL" ]; then
-    "$PYTHON" "$PROJECT_DIR/feed.py" index-html --base-url "$BASE_URL"
-    "$PYTHON" "$PROJECT_DIR/feed.py" opml --base-url "$BASE_URL"
+    run_python "$PROJECT_DIR/feed.py" index-html --base-url "$BASE_URL"
+    run_python "$PROJECT_DIR/feed.py" opml --base-url "$BASE_URL"
 fi
 
 # --- Phase 3: Acquire lock (portable mkdir-based) ---
@@ -80,7 +80,7 @@ else
 fi
 
 # --- Phase 7: Ping WebSub hub if configured ---
-WEBSUB_HUB=$("$PYTHON" -c "
+WEBSUB_HUB=$(run_python -c "
 import yaml
 with open('$PROJECT_DIR/config.yaml') as f:
     print(yaml.safe_load(f).get('settings',{}).get('websub_hub',''))

@@ -8,8 +8,9 @@ cd "$(dirname "$0")"
 
 # --- Config ---
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-WORKER_TIMEOUT="${WORKER_TIMEOUT:-900}"   # 15 min per worker
+WORKER_TIMEOUT="${WORKER_TIMEOUT:-1800}"  # 30 min per worker
 TIMEOUT_BIN="${TIMEOUT_BIN:-/opt/homebrew/bin/timeout}"
+run_python() { python "$@"; }
 
 # --- Log rotation ---
 mkdir -p .logs
@@ -27,9 +28,9 @@ cleanup_publish() {
     if [ "$PUBLISHED" -eq 0 ]; then
         echo ""
         echo "--- Emergency publish (orchestration did not complete normally) ---"
-        python3 feed.py prune --keep 50 || true
+        run_python feed.py prune --keep 50 || true
         local base_url
-        base_url=$(python3 -c "
+        base_url=$(run_python -c "
 import yaml
 with open('config.yaml') as f:
     print(yaml.safe_load(f).get('settings',{}).get('base_url',''))
@@ -42,7 +43,7 @@ with open('config.yaml') as f:
 trap cleanup_publish EXIT
 
 # Parse topics from config.yaml: topic_id|target|model
-TOPICS=$(python3 -c "
+TOPICS=$(run_python -c "
 import yaml
 with open('config.yaml') as f:
     config = yaml.safe_load(f)
@@ -52,7 +53,7 @@ for t in config.get('topics', []):
 ")
 
 # Init all feed XMLs
-python3 feed.py init
+run_python feed.py init
 
 # Generate run ID
 RUN_ID=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -66,6 +67,7 @@ spawn_workers() {
 
     local pids=()
     local topic_ids=()
+    local start_times=()
     for line in "${topics_to_run[@]}"; do
         IFS='|' read -r topic_id target_or_gap model extra_prompt <<< "$line"
         echo "  [$round_name] $topic_id (target: $target_or_gap, model: $model)"
@@ -75,6 +77,7 @@ spawn_workers() {
             prompt="$prompt $extra_prompt"
         fi
 
+        start_times+=("$(date +%s)")
         "$TIMEOUT_BIN" --kill-after=30 "$WORKER_TIMEOUT" \
             "$CLAUDE_BIN" --model "$model" -p "$prompt" \
             --allowedTools "WebSearch,WebFetch,Bash,Read,Grep,Glob" \
@@ -90,14 +93,17 @@ spawn_workers() {
         local exit_code=0
         wait "$pid" || exit_code=$?
         local tid="${topic_ids[$i]}"
+        local elapsed=$(( $(date +%s) - ${start_times[$i]} ))
+        local mins=$((elapsed / 60))
+        local secs=$((elapsed % 60))
         if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
             echo "  TIMEOUT: $tid (killed after ${WORKER_TIMEOUT}s)"
             failed+=("$tid:timeout")
         elif [ "$exit_code" -ne 0 ]; then
-            echo "  FAILED: $tid (exit code $exit_code)"
+            echo "  FAILED: $tid (exit code $exit_code) [${mins}m${secs}s]"
             failed+=("$tid:exit-$exit_code")
         else
-            echo "  OK: $tid"
+            echo "  OK: $tid [${mins}m${secs}s]"
         fi
         i=$((i + 1))
     done
@@ -119,7 +125,7 @@ spawn_workers "round1" "${round1_topics[@]}"
 
 # === Check targets ===
 echo "--- Checking targets ---"
-CHECK_OUTPUT=$(python3 feed.py check-targets --run-id "$RUN_ID" 2>&1) || true
+CHECK_OUTPUT=$(run_python feed.py check-targets --run-id "$RUN_ID" 2>&1) || true
 echo "$CHECK_OUTPUT"
 echo ""
 
@@ -127,7 +133,7 @@ if echo "$CHECK_OUTPUT" | grep -q "__SHORTFALLS_JSON__"; then
     # Parse shortfalls
     SHORTFALLS_JSON=$(echo "$CHECK_OUTPUT" | grep "__SHORTFALLS_JSON__" | sed 's/.*__SHORTFALLS_JSON__://')
 
-    RETRY_LINES=$(python3 -c "
+    RETRY_LINES=$(run_python -c "
 import json, yaml, sys
 shortfalls = json.loads(sys.argv[1])
 with open('config.yaml') as f:
@@ -151,7 +157,7 @@ for s in shortfalls:
 
     # Final check (informational)
     echo "--- Final target check ---"
-    python3 feed.py check-targets --run-id "$RUN_ID" 2>&1 || true
+    run_python feed.py check-targets --run-id "$RUN_ID" 2>&1 || true
     echo ""
 else
     echo "All targets met on first round!"
@@ -159,8 +165,8 @@ fi
 
 # === Prune and publish ===
 echo "--- Pruning and publishing ---"
-python3 feed.py prune --keep 50
-BASE_URL=$(python3 -c "
+run_python feed.py prune --keep 50
+BASE_URL=$(run_python -c "
 import yaml
 with open('config.yaml') as f:
     print(yaml.safe_load(f).get('settings',{}).get('base_url',''))
