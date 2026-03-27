@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
-<rss xmlns:ns0="http://www.w3.org/2005/Atom" version="2.0">
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
   <channel>
     <title>My Research Feed</title>
     <description>Deep research briefings powered by Claude</description>
     <link>https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml</link>
     <lastBuildDate>Fri, 27 Mar 2026 03:41:39 +0000</lastBuildDate>
     <generator>cc-deepfeed</generator>
-    <ns0:link rel="self" href="https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml" type="application/rss+xml" />
+    <atom:link rel="self" href="https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml" type="application/rss+xml" />
     <item>
       <title>Open-Source Models Reach Frontier Performance: Qwen 3.5-9B Outperforms GPT-oss-120B</title>
       <description>&lt;p&gt;March 2026 may be remembered as the month open-source AI models definitively closed the gap with proprietary frontier systems. The headline result: Alibaba's &lt;strong&gt;Qwen 3.5-9B&lt;/strong&gt;, a 9-billion-parameter dense model released under Apache 2.0, scored 81.7 on GPQA Diamond — surpassing OpenAI's GPT-oss-120B (71.5), a model thirteen times its size. The 9B model also posted 83.2 on HMMT Feb 2025 and 82.5 on MMLU-Pro, numbers that would have been frontier-class just months ago.&lt;/p&gt;
