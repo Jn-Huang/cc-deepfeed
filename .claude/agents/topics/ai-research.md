@@ -19,10 +19,22 @@ Notable developments in AI research, with a focus on technical substance.
 
 ## Research Strategy
 
-1. Check arXiv for new preprints in cs.AI, cs.LG, cs.CL
-2. Search for notable model releases, benchmark results, and technical blog posts
-3. Cross-reference claims with at least 2 sources
-4. For papers, use WebFetch to read the abstract and introduction
+**Mandatory first step — crawl primary sources.** Before any web searches, use WebFetch on these URLs and extract recent posts/papers from the last 2 weeks:
+
+1. `https://arxiv.org/list/cs.AI/recent` — recent AI papers
+2. `https://arxiv.org/list/cs.CL/recent` — recent NLP/LLM papers
+3. `https://www.anthropic.com/research` — Anthropic research
+4. `https://openai.com/research` — OpenAI research
+5. `https://deepmind.google/discover/blog/` — DeepMind research blog
+
+For each page, identify posts/papers from the last 2 weeks not already in state, and WebFetch promising ones for details.
+
+**Then do broader research:**
+6. Search for notable model releases, benchmark results, and technical blog posts
+7. Cross-reference claims with at least 2 sources
+8. For papers, use WebFetch to read the abstract and introduction
+
+**Verification rule:** Every claim must trace to a real, fetchable source URL. Do not write about anything you cannot verify with a primary source.
 
 ## Writing Style
 

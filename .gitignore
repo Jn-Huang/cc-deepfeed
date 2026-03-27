@@ -6,6 +6,8 @@ ROADMAP.md
 !.claude/agents/topics/ai-research.md
 !.claude/agents/topics/world-news.md
 !.claude/agents/topics/product-design.md
+!.claude/agents/topics/frontier-lab.md
+!.claude/agents/topics/arxiv-science.md
 feeds/*.xml
 feeds/*.png
 feeds/*.lock

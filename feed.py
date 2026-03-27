@@ -134,6 +134,7 @@ def lock_xml(xml_path):
 
 def write_xml(tree, path):
     """Write an ElementTree to an XML file with consistent formatting."""
+    ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
     ET.indent(tree, space="  ")
     tree.write(path, encoding="unicode", xml_declaration=True)
 
@@ -186,7 +187,7 @@ def init_feed(name, description, feeds_dir, combined_feed, base_url=None, websub
     print(f"Initialized feed: {path}")
 
 
-def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, target_feeds, run_id=None, image_url=None):
+def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, target_feeds, run_id=None, image_url=None, article_date=None):
     """Add an entry to subscriber feed XMLs and update per-topic state.
 
     target_feeds: list of combined_feed name strings (e.g., ["daily-briefings", "rachel-briefings"])
@@ -248,6 +249,8 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, targe
                 ET.SubElement(item, "link").text = source_list[0]
             if image_url:
                 ET.SubElement(item, "enclosure", url=image_url, type="image/jpeg", length="0")
+            if article_date:
+                ET.SubElement(item, "articleDate").text = article_date
 
             # Update lastBuildDate
             last_build = channel.find("lastBuildDate")
@@ -647,62 +650,130 @@ def generate_opml(config, base_url):
 
 
 def generate_index_html(config, base_url):
-    """Generate a simple index.html listing all user feeds."""
+    """Generate index.html listing all feeds with recent entry previews."""
+    import re as _re
     feeds_dir, state_dir = get_dirs(config)
     topics = config.get("topics", [])
     feed_defs = config.get("feeds", [])
+    topic_map = {t["id"]: t.get("name", t["id"]) for t in topics}
 
-    # Count total entries across all topics
-    total_entries = 0
-    for topic in topics:
-        state = load_state(topic["id"], state_dir)
-        total_entries += len(state.get("entries", []))
+    # Collect recent entries from all feed XMLs (newest first)
+    all_entries = []
+    seen_guids = set()
+    for feed_def in feed_defs:
+        path = feed_path(feeds_dir, feed_def["combined_feed"])
+        if not path.exists():
+            continue
+        ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
+        tree = ET.parse(path)
+        for item in tree.getroot().find("channel").findall("item"):
+            guid_el = item.find("guid")
+            guid = guid_el.text if guid_el is not None else ""
+            if guid in seen_guids:
+                continue
+            seen_guids.add(guid)
+            title = item.find("title").text or ""
+            desc = item.find("description").text or ""
+            link_el = item.find("link")
+            link = link_el.text if link_el is not None else ""
+            cat_el = item.find("category")
+            category = cat_el.text if cat_el is not None else ""
+            pub_el = item.find("pubDate")
+            pub_date = pub_el.text if pub_el is not None else ""
+            enclosure = item.find("enclosure")
+            image = enclosure.get("url", "") if enclosure is not None else ""
+            article_date_el = item.find("articleDate")
+            article_date = article_date_el.text if article_date_el is not None else ""
+            # Extract plain text snippet from HTML description
+            text = _re.sub(r'<[^>]+>', ' ', desc).strip()
+            text = _re.sub(r'\s+', ' ', text)
+            # Cut at ~200 chars on word boundary
+            snippet = text[:250].rsplit(" ", 1)[0] + "..." if len(text) > 250 else text
+            all_entries.append({
+                "title": title, "snippet": snippet, "link": link,
+                "category": category, "pub_date": pub_date, "image": image,
+                "article_date": article_date,
+            })
 
     # Build per-feed subscribe links
     feed_links = []
     for feed_def in feed_defs:
         feed_url = f"{base_url.rstrip('/')}/{feed_def['combined_feed']}.xml"
-        feed_links.append(f'    <a href="{feed_url}">{html.escape(feed_def["feed_name"])}</a>')
-
-    topic_list = ", ".join(t.get("name", t["id"]) for t in topics)
+        feed_links.append(f'<a href="{feed_url}">{html.escape(feed_def["feed_name"])}</a>')
 
     subscribe_links = " &middot; ".join(feed_links)
 
-    parts = [
-        '<!DOCTYPE html>',
-        '<html lang="en">',
-        '<head>',
-        '  <meta charset="utf-8">',
-        '  <meta name="viewport" content="width=device-width, initial-scale=1">',
-        '  <title>RSS Research Feeds</title>',
-        '  <style>',
-        '    body { font-family: -apple-system, system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }',
-        '    h1 { border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }',
-        '    .subscribe { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
-        '    .subscribe a { color: #0066cc; text-decoration: none; font-weight: bold; }',
-        '    .subscribe a:hover { text-decoration: underline; }',
-        '    .topics { margin: 1rem 0; color: #666; font-size: 0.9rem; }',
-        '    .meta { color: #999; font-size: 0.85rem; margin-top: 0.5rem; }',
-        '    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #999; font-size: 0.85rem; }',
-        '  </style>',
-        '</head>',
-        '<body>',
-        '  <h1>RSS Research Feeds</h1>',
-        '  <p>Deep research briefings delivered as RSS feeds.</p>',
-        '  <div class="subscribe">',
-        f'    {subscribe_links}',
-        f'    &middot; <a href="{base_url.rstrip("/")}/index.opml">Import (OPML)</a>',
-        '  </div>',
-        f'  <div class="topics"><strong>Topics:</strong> {html.escape(topic_list)}</div>',
-        f'  <div class="meta">{total_entries} entries &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</div>',
-        f'  <footer>Generated by cc-deepfeed</footer>',
-        '</body>',
-        '</html>',
-    ]
+    # Build entry cards HTML
+    entry_cards = []
+    for entry in all_entries[:20]:
+        topic_name = html.escape(topic_map.get(entry["category"], entry["category"]))
+        title_escaped = html.escape(entry["title"])
+        link_attr = f' href="{html.escape(entry["link"])}"' if entry["link"] else ""
+        image_html = ""
+        if entry["image"]:
+            image_html = f'<img class="entry-img" src="{html.escape(entry["image"])}" alt="" loading="lazy">'
+        entry_cards.append(
+            f'<article class="entry">'
+            f'{image_html}'
+            f'<div class="entry-body">'
+            f'<h3><a{link_attr} target="_blank" rel="noopener">{title_escaped}</a></h3>'
+            f'<div class="entry-meta">{topic_name} &middot; {html.escape("Published " + entry["article_date"] if entry["article_date"] else entry["pub_date"][:16] if entry["pub_date"] else "")}</div>'
+            f'<p class="entry-snippet">{html.escape(entry["snippet"])}</p>'
+            f'</div>'
+            f'</article>'
+        )
+
+    entries_html = "\n".join(entry_cards) if entry_cards else "<p>No entries yet. Run a research cycle to populate feeds.</p>"
+
+    page_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Feeds</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem; color: #1a1a1a; background: #fafafa; }}
+    h1 {{ font-size: 1.6rem; margin-bottom: 0.25rem; }}
+    .subtitle {{ color: #666; margin-top: 0; margin-bottom: 1.5rem; }}
+    .subscribe {{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; padding: 0.8rem 1rem; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }}
+    .subscribe a {{ color: #0066cc; text-decoration: none; font-weight: 600; }}
+    .subscribe a:hover {{ text-decoration: underline; }}
+    .subscribe .label {{ color: #999; font-size: 0.85rem; }}
+    .entries {{ display: flex; flex-direction: column; gap: 1rem; }}
+    .entry {{ display: flex; gap: 1rem; padding: 1rem; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; transition: box-shadow 0.15s; }}
+    .entry:hover {{ box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+    .entry-img {{ width: 120px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }}
+    .entry-body {{ flex: 1; min-width: 0; }}
+    .entry h3 {{ font-size: 1rem; margin: 0 0 0.3rem; line-height: 1.35; }}
+    .entry h3 a {{ color: #1a1a1a; text-decoration: none; }}
+    .entry h3 a:hover {{ color: #0066cc; }}
+    .entry-meta {{ font-size: 0.78rem; color: #888; margin-bottom: 0.4rem; }}
+    .entry-snippet {{ font-size: 0.88rem; color: #555; margin: 0; line-height: 1.5; }}
+    footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #aaa; font-size: 0.8rem; text-align: center; }}
+    @media (max-width: 500px) {{
+      .entry {{ flex-direction: column; }}
+      .entry-img {{ width: 100%; height: 160px; }}
+    }}
+  </style>
+</head>
+<body>
+  <h1>Research Feeds</h1>
+  <p class="subtitle">Deep research briefings powered by Claude</p>
+  <div class="subscribe">
+    <span class="label">Subscribe:</span> {subscribe_links}
+    &middot; <a href="{base_url.rstrip("/")}/index.opml">OPML</a>
+  </div>
+  <div class="entries">
+{entries_html}
+  </div>
+  <footer>{len(all_entries)} entries &middot; Updated {datetime.now(timezone.utc).strftime("%Y-%m-%d")} &middot; Generated by cc-deepfeed</footer>
+</body>
+</html>'''
 
     index_path = feeds_dir / "index.html"
     with open(index_path, "w") as f:
-        f.write("\n".join(parts))
+        f.write(page_html)
     print(f"Generated index: {index_path}")
 
 
@@ -775,6 +846,7 @@ def main():
     p_add.add_argument("--content", required=True, help="HTML content of the entry")
     p_add.add_argument("--sources", default="", help="Comma-separated source URLs")
     p_add.add_argument("--image", default=None, help="URL of an image to use as RSS enclosure/thumbnail")
+    p_add.add_argument("--pub-date", default=None, help="Original article publication date (ISO 8601, e.g. 2026-03-25). Shown in display; RSS pubDate still uses current time for ordering.")
     p_add.add_argument("--run-id", default=None, help="Run identifier for rollback grouping")
 
     # prune
@@ -854,7 +926,7 @@ def main():
         if not target_feeds:
             print(f"Warning: no feeds subscribe to {args.feed_id}", file=sys.stderr)
         add_entry(args.feed_id, args.title, args.content, sources, feeds_dir, state_dir,
-                  target_feeds, run_id=args.run_id, image_url=args.image)
+                  target_feeds, run_id=args.run_id, image_url=args.image, article_date=args.pub_date)
     elif args.command == "prune":
         # Prune all feed XMLs
         for combined_feed in get_all_feed_names(config):
