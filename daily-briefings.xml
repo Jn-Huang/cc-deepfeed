@@ -4,7 +4,7 @@
     <title>My Research Feed</title>
     <description>Deep research briefings powered by Claude</description>
     <link>https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml</link>
-    <lastBuildDate>Fri, 27 Mar 2026 03:41:39 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 27 Mar 2026 13:56:25 +0000</lastBuildDate>
     <generator>cc-deepfeed</generator>
     <atom:link rel="self" href="https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml" type="application/rss+xml" />
     <item>
@@ -87,6 +87,183 @@
       <category>ai-research</category>
       <link>https://arxiv.org/abs/2502.13295</link>
       <enclosure url="https://palisaderesearch.org/assets/images/blog/specification_gaming.jpeg" type="image/jpeg" length="0" />
+    </item>
+    <item>
+      <title>OpenAI Ships GPT-5.4: 1M Context, Unified API Launch, and a Direct Shot at Claude's Enterprise Lead</title>
+      <description>&lt;p&gt;OpenAI released GPT-5.4 on March 5, shipping it simultaneously across ChatGPT, the API, and Codex — the first time the company has done a unified triple launch. The model comes in three variants: standard, GPT-5.4 Thinking (reasoning-optimized), and GPT-5.4 Pro (high-performance). All share a 1 million token context window, the largest OpenAI has ever offered.&lt;/p&gt;
+
+&lt;h3&gt;Benchmarks and Performance&lt;/h3&gt;
+&lt;p&gt;GPT-5.4 scores 83% on OpenAI's GDPval test for knowledge work, 75% on OSWorld-Verified for computer use tasks, and sets records on WebArena Verified. Compared to GPT-5.2, individual claims are 33% less likely to be false and full responses are 18% less likely to contain errors. The model is also significantly more token-efficient, solving problems with fewer tokens than GPT-5.2 despite slightly higher per-token pricing.&lt;/p&gt;
+
+&lt;h3&gt;Pricing&lt;/h3&gt;
+&lt;p&gt;API pricing lands at $2.50/M input tokens, $15/M output tokens, with cached input at $0.25/M. That puts it cheaper than Claude Opus 4.6 ($5/$25) on input but comparable on output, and in practice often cheaper overall thanks to the token efficiency gains. One caveat: input pricing rises once you exceed 272K tokens in a session.&lt;/p&gt;
+
+&lt;h3&gt;Agentic and Enterprise Features&lt;/h3&gt;
+&lt;p&gt;GPT-5.4 can autonomously operate computers, browsers, and software for multi-step tasks — no custom infrastructure needed. OpenAI also shipped ChatGPT integrations for Excel and Google Sheets (beta), plus enterprise data connectors for FactSet, MSCI, Third Bridge, and Moody's. The enterprise play is clearly aimed at Anthropic's financial services stronghold.&lt;/p&gt;
+
+&lt;h3&gt;Where It Stands&lt;/h3&gt;
+&lt;p&gt;Artificial Analysis ranks GPT-5.4 and Gemini 3.1 Pro Preview tied at 57 on their Intelligence Index, with Claude Opus 4.6 at 53. But the picture is nuanced: Claude still leads on coding (80.8% SWE-Bench) and web research (84% BrowseComp), while GPT-5.4 dominates professional document tasks and computer use. The practical takeaway for developers: GPT-5.4 for knowledge work and agentic desktop automation, Claude for production code generation and deep reasoning chains, Gemini for high-volume cost-sensitive workloads.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://techcrunch.com/2026/03/05/openai-launches-gpt-5-4-with-pro-and-thinking-versions/"&gt;https://techcrunch.com/2026/03/05/openai-launches-gpt-5-4-with-pro-and-thinking-versions/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://fortune.com/2026/03/05/openai-new-model-gpt5-4-enterprise-agentic-anthropic/"&gt;https://fortune.com/2026/03/05/openai-new-model-gpt5-4-enterprise-agentic-anthropic/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://artificialanalysis.ai/models/gpt-5-4"&gt;https://artificialanalysis.ai/models/gpt-5-4&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">b48a940c-d9ca-5a7f-90d2-bd9b826dbf2d</guid>
+      <pubDate>Fri, 27 Mar 2026 13:55:14 +0000</pubDate>
+      <category>frontier-lab</category>
+      <link>https://techcrunch.com/2026/03/05/openai-launches-gpt-5-4-with-pro-and-thinking-versions/</link>
+      <enclosure url="https://techcrunch.com/wp-content/uploads/2026/03/5.4-Thinking_Hero-SEO.png?resize=1200,675" type="image/jpeg" length="0" />
+    </item>
+    <item>
+      <title>GPT-5.4 Hits 50% on FrontierMath — But the Fine Print Matters</title>
+      <description>&lt;p&gt;When FrontierMath launched in late 2024, frontier models scored around 2%. By December 2024, o3 had pushed that to 25%. Now GPT-5.4 Pro has reached 50% on Tiers 1–3, doubling the previous record in roughly 15 months. On the hardest problems (Tier 4), it scored 38%. These numbers mark genuine progress in AI mathematical reasoning — but the details reveal as much as the headline.&lt;/p&gt;
+
+&lt;h3&gt;What FrontierMath Actually Tests&lt;/h3&gt;
+&lt;p&gt;FrontierMath, developed by Epoch AI, consists of 290 problems spanning undergraduate to research-level mathematics across Tiers 1–4. Unlike GSM8K or MATH, these problems require multi-step reasoning, symbolic manipulation, and sometimes genuine mathematical insight. Tier 4 problems are drawn from active research areas, and some remain unsolved by any model.&lt;/p&gt;
+
+&lt;h3&gt;The Numbers in Context&lt;/h3&gt;
+&lt;p&gt;GPT-5.4 Pro scored 52% on the non-held-out problem set (which OpenAI funded and had access to) versus 42% on the held-out set. Epoch AI reports no statistically significant difference, but the gap is worth noting. On Tier 4, the pattern reversed: 25% on non-held-out versus 55% on held-out, though the small sample size makes this noisy.&lt;/p&gt;
+&lt;p&gt;Two previously unsolved Tier 4 problems fell for the first time. But here is where things get interesting. On the first, preliminary analysis revealed GPT-5.4 had found a 2011 preprint that let it shortcut much of the intended mathematical work — essentially a retrieval win dressed up as reasoning. The second was a problem by mathematician Bartosz Naskręcki, who reviewed the solution positively. Across all evaluation runs ever, 42% (20 of 48) of Tier 4 problems have now been solved at least once.&lt;/p&gt;
+&lt;p&gt;On genuinely open mathematical problems — conjectures that no human has solved — GPT-5.4 Pro produced nothing useful. The observations it generated were described by one evaluator as 'relatively uninteresting.'&lt;/p&gt;
+
+&lt;h3&gt;The Trajectory&lt;/h3&gt;
+&lt;p&gt;The progression tells a clear story: GPT-4 at ~2% (2024) → o3 at 25% (late 2024) → GPT-5.4 Pro at 50% (March 2026). That is a 25× improvement in roughly 18 months. If we naively extrapolate, Tier 1–3 saturation is perhaps 12–18 months away. But the gap between solving curated problems with known solutions and tackling open problems remains vast.&lt;/p&gt;
+
+&lt;h3&gt;What to Watch&lt;/h3&gt;
+&lt;p&gt;The retrieval-shortcutting issue on the first Tier 4 solve raises an important methodological question: as models get better at finding relevant literature, how do we distinguish genuine mathematical reasoning from sophisticated information retrieval? FrontierMath may need to evolve its evaluation methodology. Meanwhile, Tier 4 pass rates and performance on truly open problems remain the more meaningful signal for whether AI is approaching novel mathematical capability — and on that front, we are not there yet.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://epochai.substack.com/p/gpt-54-set-a-new-record-on-frontiermath"&gt;https://epochai.substack.com/p/gpt-54-set-a-new-record-on-frontiermath&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://x.com/EpochAIResearch/status/2029626255776395425"&gt;https://x.com/EpochAIResearch/status/2029626255776395425&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://winbuzzer.com/2026/03/24/gpt-54-pro-solves-open-math-problem-epoch-ai-frontiermath-xcxwbn/"&gt;https://winbuzzer.com/2026/03/24/gpt-54-pro-solves-open-math-problem-epoch-ai-frontiermath-xcxwbn/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">b3f08cd3-cfc4-5683-a039-db76d5186c20</guid>
+      <pubDate>Fri, 27 Mar 2026 13:55:28 +0000</pubDate>
+      <category>ai-research</category>
+      <link>https://epochai.substack.com/p/gpt-54-set-a-new-record-on-frontiermath</link>
+      <enclosure url="https://substackcdn.com/image/fetch/$s_!HSol!,w_1200,h_675,c_fill,f_jpg,q_auto:good,fl_progressive:steep,g_auto/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F63741d46-1c8f-46b4-a6b2-bdf60061ecd9_800x1000.jpeg" type="image/jpeg" length="0" />
+    </item>
+    <item>
+      <title>Gemini 3 Deep Think Solves Open Math Problems Autonomously, Disproves Decade-Old CS Conjecture</title>
+      <description>&lt;p&gt;Google DeepMind's Gemini 3 Deep Think has crossed a threshold that most reasoning models have only hinted at: autonomously solving open mathematical problems and producing publishable-quality research. The updated model, now available to Google AI Ultra subscribers in the Gemini app, represents a significant leap beyond the IMO-Gold standard the system achieved in summer 2025.&lt;/p&gt;
+
+&lt;h3&gt;Concrete Research Results&lt;/h3&gt;
+&lt;p&gt;The numbers are striking. Deep Think solved 4 open problems from the Erdős Conjectures database with zero human guidance and autonomously produced a complete research paper on eigenweights in arithmetic geometry. On IMO-ProofBench Advanced, the January 2026 version scores up to 90%, and it reaches approximately 38% on FutureMath Basic — a benchmark targeting PhD-level mathematics. Multiple collaborations with human researchers have been rated "Level 2" (publishable quality) and submitted to journals.&lt;/p&gt;
+
+&lt;p&gt;In computer science, Deep Think broke new ground on Max-Cut and Steiner Tree problems by pulling in cross-disciplinary mathematics, and disproved a decade-old conjecture in submodular optimization. In physics, it found a novel solution using Gegenbauer polynomials for cosmic string calculations that had stumped researchers.&lt;/p&gt;
+
+&lt;h3&gt;Architecture: The Aletheia Agent&lt;/h3&gt;
+&lt;p&gt;Under the hood, Deep Think uses what DeepMind calls the Aletheia Math Research Agent — a multi-step pipeline that generates candidate solutions, verifies them with a natural language verifier, and revises iteratively. Critically, the system integrates web browsing and Google Search to prevent citation errors, and can recognize when a problem is unsolvable rather than hallucinating a fake proof. DeepMind also uses "balanced prompting" — asking the model to simultaneously attempt proof and refutation — to counteract confirmation bias.&lt;/p&gt;
+
+&lt;h3&gt;What This Means for Developers&lt;/h3&gt;
+&lt;p&gt;Deep Think is currently available to AI Ultra subscribers in the Gemini app, with an early access program for the API targeting scientists and enterprises. For developers building research tooling, the verification-then-revision loop is the key architectural insight: rather than relying on a single inference pass, Deep Think's pipeline treats reasoning as a search problem with automated verification at each step. Google hasn't published API pricing yet, but the inference compute requirements suggest this will sit at the premium end of Google's model lineup. Compared to OpenAI's o-series reasoning models, Deep Think is targeting a narrower but deeper niche — formal mathematics and scientific reasoning rather than general-purpose chain-of-thought.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/"&gt;https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-deep-think/"&gt;https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-deep-think/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">6934d2ee-c646-5adb-b10e-d7cc8a8a53c3</guid>
+      <pubDate>Fri, 27 Mar 2026 13:55:37 +0000</pubDate>
+      <category>frontier-lab</category>
+      <link>https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/</link>
+    </item>
+    <item>
+      <title>The Alignment Tax: How RLHF Breaks Uncertainty Estimation in LLMs</title>
+      <description>&lt;p&gt;A new paper by Mingyi Liu, posted to arXiv on March 25, quantifies a subtle but consequential side effect of RLHF alignment: it collapses the diversity of model responses so severely that standard uncertainty estimation methods become useless. The finding has practical implications for anyone building systems that need to know when an LLM is likely wrong.&lt;/p&gt;
+
+&lt;h3&gt;The Core Problem&lt;/h3&gt;
+&lt;p&gt;The standard approach to estimating LLM uncertainty is to sample multiple responses and measure their disagreement — if the model gives the same answer every time, it is probably confident; if answers vary widely, it is uncertain. This works well in theory. But Liu shows that RLHF-aligned models produce a single semantic cluster for 40–79% of questions on TruthfulQA across 10 independent samples. The model is not confident — it is just homogenized. It has learned one 'approved' way to answer each type of question and repeats it regardless of the sampling temperature.&lt;/p&gt;
+&lt;p&gt;The consequence is stark: on affected questions, sampling-based uncertainty methods achieve an AUROC of 0.500 — literally no better than random coin flips at distinguishing correct from incorrect answers. Free token entropy, which measures uncertainty at the token level rather than the response level, retains some signal (AUROC of 0.603), but the gap between what should work and what actually works is troubling.&lt;/p&gt;
+
+&lt;h3&gt;Pinpointing the Cause&lt;/h3&gt;
+&lt;p&gt;A clean ablation study isolates the culprit. Base models show a 1.0% single-cluster rate. After supervised fine-tuning (SFT), this rises modestly to 1.5%. But after DPO (Direct Preference Optimization), it jumps to 4.0% — and in instruction-tuned models combining all stages, the rate hits 28.5%. The difference between base and instruct models is statistically overwhelming (p &lt; 10⁻⁶). DPO, not SFT, is the primary driver. This makes intuitive sense: DPO explicitly trains models to prefer one response style over alternatives, collapsing the response distribution.&lt;/p&gt;
+&lt;p&gt;The effect is not uniform across tasks. On GSM8K (grade-school math), response diversity is better preserved — token entropy achieves 0.724 AUROC with a large effect size (Cohen's d = 0.81). Mathematical problems have more varied solution paths that survive alignment. But on knowledge-retrieval tasks like TruthfulQA and WebQuestions (58% single-cluster rate), homogenization is severe.&lt;/p&gt;
+
+&lt;h3&gt;A Practical Fix&lt;/h3&gt;
+&lt;p&gt;The paper proposes UCBD (Uncertainty-Calibrated Batch Dispatch), a cascade that combines orthogonal uncertainty signals — using cheap token-level entropy first, escalating to more expensive sampling-based methods only when needed. On GSM8K, this raises accuracy from 84.4% to 93.2% at 50% coverage while cutting costs by 57%. It is a pragmatic workaround, not a fundamental fix, but it demonstrates that combining complementary uncertainty signals can recover much of what alignment destroys.&lt;/p&gt;
+
+&lt;h3&gt;Why This Matters&lt;/h3&gt;
+&lt;p&gt;As LLMs get deployed in high-stakes settings — medical diagnosis, legal analysis, financial decisions — knowing when the model is uncertain is critical. This paper shows that the very process that makes models safe and helpful (RLHF/DPO) also makes them worse at signaling their own limitations. The validation across 22 experiments, 5 benchmarks, 4 model families, and 3 scales (3B–14B parameters) suggests this is a general phenomenon, not an artifact of one model or task. Anyone building uncertainty-aware LLM systems should be accounting for this alignment tax.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://arxiv.org/abs/2603.24124"&gt;https://arxiv.org/abs/2603.24124&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://arxiv.org/html/2603.24124"&gt;https://arxiv.org/html/2603.24124&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">0a1b0bd4-d224-5d8b-9b81-99e5cff6810e</guid>
+      <pubDate>Fri, 27 Mar 2026 13:55:55 +0000</pubDate>
+      <category>ai-research</category>
+      <link>https://arxiv.org/abs/2603.24124</link>
+      <enclosure url="https://static.arxiv.org/icons/twitter/arxiv-logo-twitter-square.png" type="image/jpeg" length="0" />
+    </item>
+    <item>
+      <title>Anthropic Accidentally Leaks Claude Mythos — Its Most Capable Model Yet — Via CMS Misconfiguration</title>
+      <description>&lt;p&gt;On March 26, 2026, a configuration error in Anthropic's content management system exposed approximately 3,000 unpublished assets — images, PDFs, and internal documents — revealing the existence of Claude Mythos, which Anthropic officials described internally as "our most capable model to date" and a "step change" in AI capabilities. Security researchers Alexandre Pauwels and Roy Paz independently identified the vulnerability.&lt;/p&gt;
+
+&lt;h3&gt;What the Leak Revealed&lt;/h3&gt;
+&lt;p&gt;The leaked materials show Mythos significantly outperforms Claude Opus 4.6 across cybersecurity, software programming, and academic reasoning benchmarks. Anthropic's internal documentation describes the model as occupying a tier above the existing Opus series — reportedly codenamed "Capybara" tier. No specific architecture details or parameter counts were included in the exposed documents, but the performance characterization suggests a substantial capability jump rather than an incremental update.&lt;/p&gt;
+
+&lt;h3&gt;Controlled Rollout Plan&lt;/h3&gt;
+&lt;p&gt;According to the leaked plans, Mythos will initially be available only to select enterprise customers, with the first use case focused on cybersecurity defense — specifically on-chain data protection and virtual asset defense. There are no plans for a near-term public release. The documents cite extreme computational costs and the model's advanced capabilities as reasons for the controlled rollout, echoing the kind of staged deployment Anthropic has used before with Opus-tier models.&lt;/p&gt;
+
+&lt;p&gt;The leak also revealed plans for a closed-door European executive summit where CEO Dario Amodei would personally demonstrate Mythos features to corporate leaders — suggesting Anthropic is pursuing a top-down enterprise sales strategy for this model class.&lt;/p&gt;
+
+&lt;h3&gt;Context and Implications&lt;/h3&gt;
+&lt;p&gt;The timing is notable. OpenAI shipped GPT-5.4 on March 5 with strong enterprise positioning and agentic capabilities. Google's Gemini 3 Deep Think is pushing into scientific reasoning. Mythos appears to be Anthropic's answer at the top of the capability curve, though the accidental reveal means the competitive narrative is now playing out on Anthropic's back foot rather than on their terms. For developers currently building on Opus 4.6, the key question is whether Mythos will follow the same API pattern or introduce new primitives — the cybersecurity-first rollout hints at specialized capabilities that may not map cleanly to existing Claude API patterns.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://www.thenews.com.pk/latest/1396861-anthropic-accidentally-reveals-claude-mythos-model-the-next-frontier-in-ai-power"&gt;https://www.thenews.com.pk/latest/1396861-anthropic-accidentally-reveals-claude-mythos-model-the-next-frontier-in-ai-power&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://help.apiyi.com/en/claude-mythos-capybara-anthropic-most-powerful-ai-model-api-guide-en.html"&gt;https://help.apiyi.com/en/claude-mythos-capybara-anthropic-most-powerful-ai-model-api-guide-en.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">9e7205b7-c65c-53fb-9593-14c536dd6d32</guid>
+      <pubDate>Fri, 27 Mar 2026 13:56:02 +0000</pubDate>
+      <category>frontier-lab</category>
+      <link>https://www.thenews.com.pk/latest/1396861-anthropic-accidentally-reveals-claude-mythos-model-the-next-frontier-in-ai-power</link>
+      <enclosure url="https://www.thenews.com.pk/assets/uploads/2026-03-27/1396861_122824_updates.jpg" type="image/jpeg" length="0" />
+    </item>
+    <item>
+      <title>ARC-AGI-2 One Year Later: From 5% to 77%, and What It Actually Tells Us</title>
+      <description>&lt;p&gt;When ARC-AGI-2 launched in March 2025, it was designed to humble frontier models. It worked: every model scored below 5%, while average humans hit 60% under controlled conditions. One year later, Gemini 3.1 Pro scores 77.1% — exceeding the human baseline. The speed of this collapse tells us something important about both the models and the benchmarks we build for them.&lt;/p&gt;
+
+&lt;h3&gt;The Scoreboard&lt;/h3&gt;
+&lt;p&gt;The current leaderboard paints a clear picture of the reasoning hierarchy in early 2026:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Gemini 3 Deep Think: 84.6%&lt;/strong&gt; — uses extended reasoning (thinking tokens)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Gemini 3.1 Pro: 77.1%&lt;/strong&gt; — highest score without extended thinking&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Claude Opus 4.6: 68.8%&lt;/strong&gt; — Anthropic's flagship&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;GPT-5.2 Pro: 54.2%&lt;/strong&gt; — OpenAI's early 2026 baseline&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Gemini 3.1 Pro's jump from its predecessor Gemini 3 Pro (31.1%) represents a 2.5× improvement — the largest single-generation leap on this benchmark. For context, Gemini 3 Pro itself was already a major advance over earlier models that barely broke single digits.&lt;/p&gt;
+
+&lt;h3&gt;What ARC-AGI-2 Measures&lt;/h3&gt;
+&lt;p&gt;ARC-AGI-2 tests fluid intelligence through visual grid puzzles. Each task presents a few input-output examples demonstrating an abstract rule — rotations, symmetries, counting patterns, conditional transformations — and asks the model to apply that rule to a new input. The design specifically resists memorization: tasks are procedurally varied so models cannot pattern-match against training data. Success requires genuinely inferring the rule from minimal examples, a capability closer to human-like abstraction than standard NLP benchmarks test.&lt;/p&gt;
+
+&lt;h3&gt;How 77% Was Achieved&lt;/h3&gt;
+&lt;p&gt;The jump was not purely from better base models. The article from Humai Blog notes that 'application-layer engineering' played a significant role alongside model improvements. Specialized harnesses — like Poetiq's system reaching 54% through refined prompting and verification — show that scaffolding matters enormously. Some specialized approaches have pushed scores as high as 95.1% using model-specific optimization. This muddies the interpretation: is 77.1% measuring Gemini 3.1 Pro's reasoning, or Google's engineering of the evaluation pipeline?&lt;/p&gt;
+&lt;p&gt;The gap between standard and extended-thinking modes is also telling. Gemini 3 Deep Think (84.6%) uses thinking tokens to reason step-by-step before committing to an answer, suggesting that inference-time compute scaling — giving the model more time to think — remains one of the most reliable ways to boost abstract reasoning performance.&lt;/p&gt;
+
+&lt;h3&gt;The Benchmark Treadmill&lt;/h3&gt;
+&lt;p&gt;ARC-AGI-2's creators have already responded. ARC-AGI-3, released recently, resets the playing field: Gemini 3.1 Pro scores just 0.37% on the new benchmark. The pattern is now familiar — design a benchmark that stumps models, watch it get saturated in 12–18 months, release a harder version. François Chollet and the ARC team explicitly frame this as intentional: each iteration targets capabilities that models have not yet acquired, creating a moving goalpost that tracks genuine progress rather than benchmark gaming.&lt;/p&gt;
+
+&lt;h3&gt;What This Means&lt;/h3&gt;
+&lt;p&gt;The rapid saturation of ARC-AGI-2 is simultaneously impressive and humbling. Models are getting dramatically better at abstract pattern recognition in structured domains. But surpassing human baselines on controlled tests does not mean models reason like humans — they may be finding different, less generalizable shortcuts. The near-zero scores on ARC-AGI-3 confirm that substantial gaps in fluid reasoning remain. The real question is whether the 5% → 77% trajectory on ARC-AGI-2 will repeat on ARC-AGI-3, and if so, how quickly.&lt;/p&gt;
+&lt;hr/&gt;
+&lt;p&gt;&lt;strong&gt;Sources:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="https://www.humai.blog/gemini-3-1-pro-just-hit-77-on-arc-agi-2-what-that-benchmark-actually-means/"&gt;https://www.humai.blog/gemini-3-1-pro-just-hit-77-on-arc-agi-2-what-that-benchmark-actually-means/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-pro/"&gt;https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-pro/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href="https://officechai.com/ai/arc-agi-3/"&gt;https://officechai.com/ai/arc-agi-3/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <guid isPermaLink="false">1f0bfaf5-6d08-5f51-aa31-63d09b4f9985</guid>
+      <pubDate>Fri, 27 Mar 2026 13:56:25 +0000</pubDate>
+      <category>ai-research</category>
+      <link>https://www.humai.blog/gemini-3-1-pro-just-hit-77-on-arc-agi-2-what-that-benchmark-actually-means/</link>
+      <enclosure url="https://www.humai.blog/content/images/size/w1200/2026/03/gemini-3.1_pro_meta_dark.max-2000x2000.png" type="image/jpeg" length="0" />
     </item>
   </channel>
 </rss>
