@@ -26,6 +26,7 @@ Deep research briefings delivered as RSS feeds, powered by Claude Code.
 ## Interactive Commands
 
 - `/setup` — guided environment check + config creation + feed initialization. Run this first if you're new to the project.
+- `/feedback` — preference learning loop. Shows recent entries topic by topic, collects user picks, and stores preference summaries that guide future research cycles.
 
 ## Usage
 
@@ -67,6 +68,10 @@ python feed.py learn <topic_id> --brief "..." --entities "e1,e2" --threads '<jso
 python feed.py status                  # shows all topics + feeds
 python feed.py rollback <topic_id>     # rollback from all subscriber feeds
 python feed.py log <topic_id> --started "..." --finished "..." --entries-added 4
+
+# Preferences
+python feed.py prefer <user_id> <topic_id> --liked "guid1,guid2" --shown "guid1,guid2,guid3" --notes "..." --summary "..."
+python feed.py preferences <topic_id>          # show merged preferences for worker
 
 # Discoverability
 python feed.py opml --base-url "https://..."

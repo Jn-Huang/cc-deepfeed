@@ -473,6 +473,77 @@ def show_knowledge(feed_id, state_dir):
     print(json.dumps(state["knowledge"], indent=2, ensure_ascii=False))
 
 
+# --- Preference learning ---
+
+def _pref_dir(state_dir, user_id):
+    """Return and create preference directory for a user."""
+    d = state_dir / "preferences" / user_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _load_pref(state_dir, user_id, topic_id):
+    """Load preference file for a user-topic pair."""
+    path = _pref_dir(state_dir, user_id) / f"{topic_id}.json"
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return {"user_id": user_id, "topic_id": topic_id, "rounds": [], "summary": ""}
+
+
+def _save_pref(state_dir, user_id, topic_id, pref):
+    """Save preference file for a user-topic pair."""
+    path = _pref_dir(state_dir, user_id) / f"{topic_id}.json"
+    with open(path, "w") as f:
+        json.dump(pref, f, indent=2, ensure_ascii=False)
+    return path
+
+
+def record_preference(user_id, topic_id, state_dir, liked_guids, shown_guids, notes, summary):
+    """Record a feedback round and update the preference summary."""
+    pref = _load_pref(state_dir, user_id, topic_id)
+    pref["rounds"].append({
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "shown": shown_guids,
+        "liked": liked_guids,
+        "notes": notes or "",
+    })
+    # Keep last 20 rounds to avoid bloat
+    pref["rounds"] = pref["rounds"][-20:]
+    if summary:
+        pref["summary"] = summary
+    path = _save_pref(state_dir, user_id, topic_id, pref)
+    print(f"Saved preference for {user_id}/{topic_id} ({len(liked_guids)} liked out of {len(shown_guids)} shown)")
+    return path
+
+
+def show_preferences(topic_id, config, state_dir):
+    """Show merged preference summaries for a topic across all subscribers."""
+    subscribers = get_feeds_for_topic(config, topic_id)
+    if not subscribers:
+        print(f"No subscribers for topic {topic_id}.")
+        return
+    result = {"topic_id": topic_id, "user_preferences": []}
+    for feed_def in subscribers:
+        user_id = feed_def["id"]
+        pref = _load_pref(state_dir, user_id, topic_id)
+        if pref["summary"] or pref["rounds"]:
+            total_shown = sum(len(r["shown"]) for r in pref["rounds"])
+            total_liked = sum(len(r["liked"]) for r in pref["rounds"])
+            result["user_preferences"].append({
+                "user_id": user_id,
+                "summary": pref["summary"],
+                "feedback_rounds": len(pref["rounds"]),
+                "total_shown": total_shown,
+                "total_liked": total_liked,
+                "last_feedback": pref["rounds"][-1]["date"] if pref["rounds"] else None,
+            })
+    if not result["user_preferences"]:
+        print(f"No preferences recorded for topic {topic_id}.")
+    else:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
 def update_knowledge(feed_id, state_dir, brief, entities, threads_json):
     """Update the knowledge object in state after a research cycle."""
     state_path = state_dir / f"{feed_id}.json"
@@ -838,6 +909,19 @@ def main():
     # backfill-images
     sub.add_parser("backfill-images", help="Add og:image to existing entries that lack images")
 
+    # prefer (record feedback)
+    p_prefer = sub.add_parser("prefer", help="Record user preference feedback for a topic")
+    p_prefer.add_argument("user_id", help="User ID (e.g., jimmy)")
+    p_prefer.add_argument("topic_id", help="Topic ID")
+    p_prefer.add_argument("--liked", default="", help="Comma-separated GUIDs of liked entries")
+    p_prefer.add_argument("--shown", default="", help="Comma-separated GUIDs of all shown entries")
+    p_prefer.add_argument("--notes", default="", help="Free-text user notes")
+    p_prefer.add_argument("--summary", default="", help="LLM-distilled preference summary")
+
+    # preferences (read for worker)
+    p_prefs = sub.add_parser("preferences", help="Show merged preferences for a topic")
+    p_prefs.add_argument("topic_id", help="Topic ID")
+
     args = parser.parse_args()
     config = load_config(args.config)
     feeds_dir, state_dir = get_dirs(config)
@@ -902,6 +986,12 @@ def main():
         for combined_feed in get_all_feed_names(config):
             print(f"\nBackfilling images for {combined_feed}...")
             backfill_images(feeds_dir, combined_feed)
+    elif args.command == "prefer":
+        liked = split_csv(args.liked)
+        shown = split_csv(args.shown)
+        record_preference(args.user_id, args.topic_id, state_dir, liked, shown, args.notes, args.summary)
+    elif args.command == "preferences":
+        show_preferences(args.topic_id, config, state_dir)
 
 
 if __name__ == "__main__":

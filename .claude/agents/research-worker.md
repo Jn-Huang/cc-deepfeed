@@ -63,11 +63,14 @@ This is the feed's editorial brief — it defines scope (what to cover), skip ru
 
 If no topic file exists for a feed, use the feed's `name` as a general guide for scope.
 
-Check existing state and knowledge:
+Check existing state, knowledge, and user preferences:
 ```bash
 python feed.py state <feed_id>
 python feed.py knowledge <feed_id>
+python feed.py preferences <feed_id>
 ```
+
+**User preferences:** If preferences exist, they contain summaries of what subscribers liked in past entries. Use these to guide your research angles and writing style — but **at least 1 entry per run must explore an angle NOT indicated by preferences.** This ensures the feed doesn't collapse into a narrow comfort zone. The exploration entry should still be high quality and within the topic's scope, just from a different sub-topic or angle than what the user has historically preferred.
 
 ### 2. Research the topic
 
@@ -119,7 +122,7 @@ For each finding worth reporting, create a briefing entry.
 **Reprinting and translating is encouraged.** When a source article has rich detail, you may translate and reprint substantial portions of it (with attribution). This is especially useful for feeds configured in a different language than the source material (e.g., translating English news articles into Chinese for a `zh` feed). Add your own context and analysis on top, but don't shy away from including the full substance of the original reporting.
 
 **Each entry must have:**
-- A specific, informative title (not generic like "AI Progress Update")
+- A specific, informative title (not generic like "AI Progress Update"). **Do NOT include emojis in the title** — `feed.py` automatically prepends the topic emoji from config.
 - A thumbnail image (**required unless truly impossible**) — for EVERY entry, use WebFetch on the primary source URL and look for: `og:image` meta tag, `twitter:image` meta tag, or the first prominent `<img>` in the article body. Extract the full image URL. Pass it via `--image` (this sets the RSS enclosure/thumbnail only — it is NOT inserted into the content). Only omit if you fetched the source page and genuinely found zero usable images.
 - **Inline figures** — embed `<figure>` tags directly in your HTML content wherever images add value. For visual topics (UX, design, architecture, product showcases), include multiple figures placed next to the relevant text. For news/analysis topics, one or zero inline figures is fine. Use the format: `<figure><img src="..." alt="descriptive alt text" style="max-width:100%;height:auto;" /><figcaption>Caption here</figcaption></figure>`. Source image URLs from articles you WebFetch during research.
 - What happened — the concrete facts, with specifics from source articles
