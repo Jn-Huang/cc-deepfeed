@@ -81,6 +81,7 @@ feeds:
 | `combined_feed` | yes | — | XML filename (without `.xml`). Becomes `feeds/<combined_feed>.xml` |
 | `feed_name` | yes | — | RSS feed title shown in readers |
 | `feed_description` | no | — | RSS feed description |
+| `split_by_topic` | no | `false` | When `true`, creates per-topic XML channels (e.g., `daily-briefings-ai-research.xml`) in addition to the combined feed. Useful for RSS readers like Reeder that support folder-based subscriptions via OPML |
 | `topics` | yes | — | List of topic IDs this feed subscribes to |
 
 ### Multi-Feed Example
@@ -89,6 +90,7 @@ feeds:
 feeds:
   - id: personal
     combined_feed: daily-briefings
+    split_by_topic: true           # creates per-topic channels
     feed_name: "My Daily Briefings"
     topics: [ai-research, world-news, climate-tech]
 
@@ -99,3 +101,11 @@ feeds:
 ```
 
 Both feeds receive `ai-research` entries, but only the personal feed gets `world-news` and `climate-tech`.
+
+With `split_by_topic: true`, the personal feed generates:
+- `daily-briefings.xml` (combined, all topics)
+- `daily-briefings-ai-research.xml` (AI research only)
+- `daily-briefings-world-news.xml` (world news only)
+- `daily-briefings-climate-tech.xml` (climate tech only)
+
+The OPML export groups these under a folder for easy import into RSS readers.

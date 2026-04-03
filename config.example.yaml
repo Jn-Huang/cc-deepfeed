@@ -53,4 +53,5 @@ feeds:
   #   combined_feed: team-briefings
   #   feed_name: "Team Research Feed"
   #   feed_description: "Shared team briefings"
+  #   split_by_topic: true              # optional: create per-topic XML channels
   #   topics: [ai-research]

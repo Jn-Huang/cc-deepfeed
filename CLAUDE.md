@@ -13,7 +13,7 @@ Deep research briefings delivered as RSS feeds, powered by Claude Code.
 
 ## Architecture
 
-- **Topics + Feeds:** `config.yaml` has a `topics` section (global topic definitions) and a `feeds` section (per-user feed subscriptions). Topics are researched once; entries are auto-distributed to all subscriber feeds.
+- **Topics + Feeds:** `config.yaml` has a `topics` section (global topic definitions) and a `feeds` section (per-user feed subscriptions). Topics are researched once; entries are auto-distributed to all subscriber feeds. Feeds can set `split_by_topic: true` to generate per-topic XML channels in addition to the combined feed.
 - **Orchestrator + Workers:** `@research` is a thin Sonnet orchestrator that spawns parallel `research-worker` agents (one per topic). Workers do the actual research/writing on Opus (or Sonnet for factual topics via the `model` field).
 - **File locking:** `feed.py` uses `fcntl.flock` to safely handle concurrent XML writes from parallel workers.
 - **Per-topic targets:** Each topic has a `target` field specifying how many entries to aim for per run.

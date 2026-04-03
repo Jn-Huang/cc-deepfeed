@@ -87,6 +87,22 @@ def get_all_feed_names(config):
     return [f["combined_feed"] for f in config.get("feeds", [])]
 
 
+def get_per_topic_feed_name(combined_feed, topic_id):
+    """Return the per-topic feed slug: '{combined_feed}-{topic_id}'."""
+    return f"{combined_feed}-{topic_id}"
+
+
+def get_all_xml_names(config):
+    """Return all feed slugs including per-topic splits."""
+    names = []
+    for feed_def in config.get("feeds", []):
+        names.append(feed_def["combined_feed"])
+        if feed_def.get("split_by_topic"):
+            for topic_id in feed_def.get("topics", []):
+                names.append(get_per_topic_feed_name(feed_def["combined_feed"], topic_id))
+    return names
+
+
 def get_dirs(config=None):
     """Return (feeds_dir, state_dir) from config, creating if needed."""
     if config is None:
@@ -696,7 +712,7 @@ def log_run(feed_id, log_data):
 
 
 def generate_opml(config, base_url):
-    """Generate an OPML file listing all user feeds."""
+    """Generate an OPML file listing all user feeds (with per-topic channels if split)."""
     feeds_dir, _ = get_dirs(config)
 
     opml = ET.Element("opml", version="2.0")
@@ -707,13 +723,40 @@ def generate_opml(config, base_url):
     body = ET.SubElement(opml, "body")
     for feed_def in config.get("feeds", []):
         feed_url = f"{base_url.rstrip('/')}/{feed_def['combined_feed']}.xml"
-        ET.SubElement(body, "outline",
-            type="rss",
-            text=feed_def["feed_name"],
-            title=feed_def["feed_name"],
-            xmlUrl=feed_url,
-            htmlUrl=base_url,
-        )
+
+        if feed_def.get("split_by_topic"):
+            # Group: folder containing combined + per-topic feeds
+            group = ET.SubElement(body, "outline",
+                text=feed_def["feed_name"],
+                title=feed_def["feed_name"],
+            )
+            ET.SubElement(group, "outline",
+                type="rss",
+                text=f"{feed_def['feed_name']} (All)",
+                title=f"{feed_def['feed_name']} (All)",
+                xmlUrl=feed_url,
+                htmlUrl=base_url,
+            )
+            for topic_id in feed_def.get("topics", []):
+                topic = get_topic(config, topic_id)
+                topic_name = topic.get("name", topic_id) if topic else topic_id
+                slug = get_per_topic_feed_name(feed_def["combined_feed"], topic_id)
+                topic_url = f"{base_url.rstrip('/')}/{slug}.xml"
+                ET.SubElement(group, "outline",
+                    type="rss",
+                    text=topic_name,
+                    title=topic_name,
+                    xmlUrl=topic_url,
+                    htmlUrl=base_url,
+                )
+        else:
+            ET.SubElement(body, "outline",
+                type="rss",
+                text=feed_def["feed_name"],
+                title=feed_def["feed_name"],
+                xmlUrl=feed_url,
+                htmlUrl=base_url,
+            )
 
     tree = ET.ElementTree(opml)
     opml_path = feeds_dir / "index.opml"
@@ -739,6 +782,22 @@ def generate_index_html(config, base_url):
         feed_url = f"{base_url.rstrip('/')}/{feed_def['combined_feed']}.xml"
         feed_links.append(f'    <a href="{feed_url}">{html.escape(feed_def["feed_name"])}</a>')
 
+    # Build per-topic channel sections for split feeds
+    per_topic_html = ""
+    for feed_def in feed_defs:
+        if feed_def.get("split_by_topic"):
+            channel_links = []
+            for topic_id in feed_def.get("topics", []):
+                topic = get_topic(config, topic_id)
+                topic_name = topic.get("name", topic_id) if topic else topic_id
+                slug = get_per_topic_feed_name(feed_def["combined_feed"], topic_id)
+                topic_url = f"{base_url.rstrip('/')}/{slug}.xml"
+                channel_links.append(f'<a href="{topic_url}">{html.escape(topic_name)}</a>')
+            if channel_links:
+                per_topic_html += f'  <div class="channels"><strong>{html.escape(feed_def["feed_name"])} channels:</strong><br/>\n'
+                per_topic_html += "    " + " &middot; ".join(channel_links) + "\n"
+                per_topic_html += "  </div>\n"
+
     topic_list = ", ".join(t.get("name", t["id"]) for t in topics)
 
     subscribe_links = " &middot; ".join(feed_links)
@@ -756,6 +815,9 @@ def generate_index_html(config, base_url):
         '    .subscribe { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
         '    .subscribe a { color: #0066cc; text-decoration: none; font-weight: bold; }',
         '    .subscribe a:hover { text-decoration: underline; }',
+        '    .channels { margin: 0.5rem 0 0; padding: 0.75rem 1rem; background: #f8f8f8; border-radius: 4px; font-size: 0.9rem; line-height: 1.6; }',
+        '    .channels a { color: #0066cc; text-decoration: none; }',
+        '    .channels a:hover { text-decoration: underline; }',
         '    .topics { margin: 1rem 0; color: #666; font-size: 0.9rem; }',
         '    .meta { color: #999; font-size: 0.85rem; margin-top: 0.5rem; }',
         '    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #999; font-size: 0.85rem; }',
@@ -768,17 +830,77 @@ def generate_index_html(config, base_url):
         f'    {subscribe_links}',
         f'    &middot; <a href="{base_url.rstrip("/")}/index.opml">Import (OPML)</a>',
         '  </div>',
+    ]
+    if per_topic_html:
+        parts.append(per_topic_html.rstrip())
+    parts.extend([
         f'  <div class="topics"><strong>Topics:</strong> {html.escape(topic_list)}</div>',
         f'  <div class="meta">{total_entries} entries &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</div>',
         f'  <footer>Generated by cc-deepfeed</footer>',
         '</body>',
         '</html>',
-    ]
+    ])
 
     index_path = feeds_dir / "index.html"
     with open(index_path, "w") as f:
         f.write("\n".join(parts))
     print(f"Generated index: {index_path}")
+
+
+def backfill_split(config, feeds_dir):
+    """Copy entries from combined feeds into per-topic feeds based on <category>."""
+    for feed_def in config.get("feeds", []):
+        if not feed_def.get("split_by_topic"):
+            continue
+        combined = feed_def["combined_feed"]
+        path = feed_path(feeds_dir, combined)
+        if not path.exists():
+            continue
+
+        tree = ET.parse(path)
+        channel = tree.getroot().find("channel")
+        if channel is None:
+            continue
+
+        # Group items by category (topic_id)
+        items_by_topic = {}
+        for item in channel.findall("item"):
+            cat_el = item.find("category")
+            if cat_el is not None and cat_el.text:
+                items_by_topic.setdefault(cat_el.text, []).append(item)
+
+        for topic_id in feed_def.get("topics", []):
+            slug = get_per_topic_feed_name(combined, topic_id)
+            topic_path = feed_path(feeds_dir, slug)
+            if not topic_path.exists():
+                print(f"  Skipping {slug} (not initialized)", file=sys.stderr)
+                continue
+
+            items = items_by_topic.get(topic_id, [])
+            if not items:
+                continue
+
+            topic_tree = ET.parse(topic_path)
+            topic_channel = topic_tree.getroot().find("channel")
+            if topic_channel is None:
+                continue
+
+            # Collect existing guids to avoid duplicates
+            existing = {i.find("guid").text for i in topic_channel.findall("item") if i.find("guid") is not None}
+            added = 0
+            for item in items:
+                guid_el = item.find("guid")
+                if guid_el is not None and guid_el.text in existing:
+                    continue
+                import copy
+                topic_channel.append(copy.deepcopy(item))
+                added += 1
+
+            if added > 0:
+                write_xml(topic_tree, topic_path)
+                print(f"  {slug}: backfilled {added} entries")
+            else:
+                print(f"  {slug}: already up to date")
 
 
 def backfill_images(feeds_dir, combined_feed):
@@ -909,6 +1031,9 @@ def main():
     # backfill-images
     sub.add_parser("backfill-images", help="Add og:image to existing entries that lack images")
 
+    # backfill-split
+    sub.add_parser("backfill-split", help="Copy entries from combined feeds into per-topic feeds")
+
     # prefer (record feedback)
     p_prefer = sub.add_parser("prefer", help="Record user preference feedback for a topic")
     p_prefer.add_argument("user_id", help="User ID (e.g., jimmy)")
@@ -934,11 +1059,26 @@ def main():
                       feeds_dir, feed_def["combined_feed"],
                       base_url=settings.get("base_url"),
                       websub_hub=settings.get("websub_hub"))
+            # Init per-topic feeds if split_by_topic is set
+            if feed_def.get("split_by_topic"):
+                for topic_id in feed_def.get("topics", []):
+                    topic = get_topic(config, topic_id)
+                    topic_name = topic.get("name", topic_id) if topic else topic_id
+                    per_topic_slug = get_per_topic_feed_name(feed_def["combined_feed"], topic_id)
+                    init_feed(topic_name,
+                              f"Per-topic feed: {topic_name}",
+                              feeds_dir, per_topic_slug,
+                              base_url=settings.get("base_url"),
+                              websub_hub=settings.get("websub_hub"))
     elif args.command == "add":
         sources = split_csv(args.sources)
         # Auto-resolve target feeds from config
         subscriber_feeds = get_feeds_for_topic(config, args.feed_id)
         target_feeds = [f["combined_feed"] for f in subscriber_feeds]
+        # Include per-topic feeds for feeds with split_by_topic
+        for f in subscriber_feeds:
+            if f.get("split_by_topic"):
+                target_feeds.append(get_per_topic_feed_name(f["combined_feed"], args.feed_id))
         if not target_feeds:
             print(f"Warning: no feeds subscribe to {args.feed_id}", file=sys.stderr)
         topic = get_topic(config, args.feed_id)
@@ -946,8 +1086,8 @@ def main():
         add_entry(args.feed_id, args.title, args.content, sources, feeds_dir, state_dir,
                   target_feeds, run_id=args.run_id, image_url=args.image, emoji=emoji)
     elif args.command == "prune":
-        # Prune all feed XMLs
-        for combined_feed in get_all_feed_names(config):
+        # Prune all feed XMLs (including per-topic splits)
+        for combined_feed in get_all_xml_names(config):
             prune_feed(args.keep, feeds_dir, state_dir, combined_feed)
     elif args.command == "list":
         list_entries(args.feed_id, feeds_dir, state_dir)
@@ -961,6 +1101,9 @@ def main():
     elif args.command == "rollback":
         subscriber_feeds = get_feeds_for_topic(config, args.feed_id)
         target_feeds = [f["combined_feed"] for f in subscriber_feeds]
+        for f in subscriber_feeds:
+            if f.get("split_by_topic"):
+                target_feeds.append(get_per_topic_feed_name(f["combined_feed"], args.feed_id))
         rollback_feed(args.feed_id, feeds_dir, state_dir, target_feeds)
     elif args.command == "status":
         show_status(config)
@@ -983,9 +1126,11 @@ def main():
     elif args.command == "check-targets":
         check_targets(config, args.run_id)
     elif args.command == "backfill-images":
-        for combined_feed in get_all_feed_names(config):
+        for combined_feed in get_all_xml_names(config):
             print(f"\nBackfilling images for {combined_feed}...")
             backfill_images(feeds_dir, combined_feed)
+    elif args.command == "backfill-split":
+        backfill_split(config, feeds_dir)
     elif args.command == "prefer":
         liked = split_csv(args.liked)
         shown = split_csv(args.shown)
