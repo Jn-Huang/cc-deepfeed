@@ -73,6 +73,9 @@ python feed.py log <topic_id> --started "..." --finished "..." --entries-added 4
 python feed.py prefer <user_id> <topic_id> --liked "guid1,guid2" --shown "guid1,guid2,guid3" --notes "..." --summary "..."
 python feed.py preferences <topic_id>          # show merged preferences for worker
 
+# Per-topic channels
+python feed.py backfill-split             # copy entries from combined feeds into per-topic feeds
+
 # Discoverability
 python feed.py opml --base-url "https://..."
 python feed.py index-html --base-url "https://..."

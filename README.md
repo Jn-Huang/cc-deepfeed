@@ -26,7 +26,7 @@ You define the topics you care about. Every morning, Claude researches them — 
 
 **Endlessly extensible.** AI research papers today, your university dining hall menu tomorrow, a daily deep-dive into an obscure historical fact the day after. If you can describe it, cc-deepfeed will research and write about it.
 
-**Any RSS reader.** Standard RSS 2.0 — Reeder, Feedly, NetNewsWire, Inoreader, or whatever you already use. Zero lock-in. Migrate anytime.
+**Any RSS reader.** Standard RSS 2.0 — Reeder, Feedly, NetNewsWire, Inoreader, or whatever you already use. Optionally split into per-topic channels for granular subscriptions. Zero lock-in. Migrate anytime.
 
 **Easy to configure.** One YAML file. Describe your interests in plain English. Run `make run`. That's it.
 

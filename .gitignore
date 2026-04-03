@@ -1,6 +1,6 @@
 config.yaml
 ROADMAP.md
-.state/*.json
+.state/
 .claude/agents/topics/*.md
 !.claude/agents/topics/_template.md
 !.claude/agents/topics/ai-research.md
