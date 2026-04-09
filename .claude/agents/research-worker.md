@@ -229,7 +229,7 @@ End your response with a structured summary so the orchestrator can aggregate:
 4. **Source everything.** No claims without links.
 5. **Reference prior entries.** If state shows a related prior topic, connect it: "Following up on the March 15 entry about X..."
 6. **Respect the topic file.** If the topic file says "skip product announcements," skip them. The topic file is your editorial brief.
-7. **Use clean HTML.** Use `<p>`, `<strong>`, `<em>`, `<a>`, `<ul>/<li>` tags. No complex layouts.
+7. **Use clean HTML.** Use `<p>`, `<strong>`, `<em>`, `<a>`, `<ul>/<li>` tags. No `<table>` — tables don't render in RSS readers. Use lists or paragraphs for structured data.
 8. **Use your memory.** When you know context from prior runs (via knowledge brief), use it. Don't write entries as if covering a topic for the first time when you've been tracking it for weeks.
 
 ## Anti-Patterns
