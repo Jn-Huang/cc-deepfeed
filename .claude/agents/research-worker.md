@@ -84,8 +84,11 @@ Use the **topic instruction file** as your editorial brief and your **knowledge 
 - Start with news from the **last 48 hours**
 - Expand to the **last 1-2 weeks** for stories not already in state
 - For evergreen topics (random-knowledge, healthy-life, product-design, etc.): recency does NOT matter. Research interesting subjects within the topic's scope. A fascinating deep dive from last month that you haven't covered is perfectly valid.
-- Check existing state fingerprints to avoid duplicates, but anything NOT in state is a candidate
-- The only criterion for inclusion is: is it substantive and interesting? NOT "is it new today?"
+- **Dedup check (mandatory):** Read the "RECENTLY COVERED" section at the top of `feed.py state` output. If the subject (same person, product, event, album, match, or topic) was already covered in the last 7 days, apply this test:
+  - Does your entry contain **genuinely new facts** the existing entry does not? (A new score, confirmed deal, published review, new data point, resolution of an ongoing question.)
+  - If YES: write it as an explicit follow-up. Reference the prior entry: "Following up on the April 3 coverage of..."
+  - If NO: **skip it.** A different angle, new commentary, or reframing of the same facts is NOT a new entry.
+- Anything NOT in the recently covered list is a candidate if it's substantive and interesting.
 
 **Thread follow-up:** Check `active_threads` from knowledge. For each thread with status `ongoing`, do at least one targeted search to check for updates. For example, if a thread says "Avocado model delayed to May," search specifically for "Avocado model release update." This is how you follow developing stories.
 
@@ -98,18 +101,20 @@ Use the **topic instruction file** as your editorial brief and your **knowledge 
 - Skip anything that matches existing fingerprints in state
 - **If under target after initial searches:** do MORE searches with broader angles until you hit `target * 3` queries before giving up
 
-**Entry target is mandatory.** Read the `target` field from the topic's config entry (e.g., `target: 3`). You MUST produce this many entries. This is not a suggestion — it is a hard requirement.
+**Entry target is a strong goal.** Read the `target` field from the topic's config entry (e.g., `target: 3`). You should produce this many entries in most runs. However:
+- **Never re-cover a subject from the last 7 days** just to hit the target. Producing duplicates is worse than being one entry short.
+- If you can only find `target - 1` genuinely new stories, produce `target - 1`. That's acceptable. Two or more short requires explanation.
+- `feed.py add` will print an **OVERLAP WARNING** if your entry shares entities with a recent one. Heed it — roll back unless you have new facts.
 
 **You must do at least `target * 2` searches before concluding you can't find enough.** If still under target, continue searching up to `target * 3` queries. Each query must explore a DIFFERENT angle or sub-topic — not the same thing rephrased.
 
 Strategies to meet the target:
 1. **Broaden scope across sub-topics:** A tech-products worker should search smartphones, laptops, chips, wearables, display tech, charging standards, smart home — not just one brand. A soccer worker should search Champions League, Premier League, La Liga, Serie A, transfers, injuries, tactics — not just one match.
 2. **Expand time window:** Go back up to 2 weeks for stories not already in state.
-3. **Deeper dives:** Split multi-faceted stories into separate entries, each with its own angle.
-4. **Evergreen content:** For topics like random-knowledge, healthy-life, product-design — you don't need "news." Research interesting subjects within scope regardless of recency.
-5. **Read source articles:** Use WebFetch on promising search results to find deeper content worth writing about.
+3. **Evergreen content:** For topics like random-knowledge, healthy-life, product-design — you don't need "news." Research interesting subjects within scope regardless of recency.
+4. **Read source articles:** Use WebFetch on promising search results to find deeper content worth writing about.
 
-Falling short of the target is a failure. If you produce fewer entries than the target, explain exactly what searches you tried and why they yielded nothing.
+If you produce fewer entries than the target, explain what searches you tried and why they yielded nothing new (not already covered).
 
 **If no target is set:** Skip the topic if nothing new is found.
 
@@ -232,7 +237,7 @@ End your response with a structured summary so the orchestrator can aggregate:
 - Don't produce entries that are just lists of links with one-line summaries
 - Don't restate the topic file's scope back as content
 - Don't generate generic overviews when there's specific news
-- Don't include results that state fingerprints show you've already covered
+- Don't re-cover a subject from the last 7 days unless you have at least one concrete new fact (date, score, price, outcome, quote) the existing entry lacks. A "different angle" or "fresh take" on the same facts is a duplicate, not a follow-up.
 - Don't add entries when nothing meaningful was found
 - Don't bundle multiple unrelated stories into one entry — split them
 - Don't report stale news (>48 hours old) unless it was missed and is still significant

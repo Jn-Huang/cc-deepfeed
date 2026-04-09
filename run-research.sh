@@ -138,7 +138,7 @@ topic_map = {t['id']: t for t in config.get('topics', [])}
 for s in shortfalls:
     t = topic_map.get(s['topic_id'], {})
     model = t.get('model', 'opus')
-    extra = f\"Previous round only got {s['added']}/{s['target']}. You MUST produce at least {s['gap']} more entries. Search HARDER — different angles, broader sub-topics, go back 2 weeks, evergreen content.\"
+    extra = f\"Previous round produced {s['added']}/{s['target']}. Try to produce {s['gap']} more entries by searching different sub-topics and broadening scope. Do NOT re-cover subjects already in state — check the RECENTLY COVERED list. If you cannot find genuinely new subjects after thorough searching, producing fewer is OK.\"
     print(f\"{s['topic_id']}|{s['gap']}|{model}|{extra}\")
 " "$SHORTFALLS_JSON")
 

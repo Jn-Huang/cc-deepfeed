@@ -77,6 +77,15 @@ def get_topic(config, topic_id):
     return None
 
 
+def _days_ago(date_str):
+    """Return how many days ago a YYYY-MM-DD date string is."""
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - d).days
+    except (ValueError, TypeError):
+        return 999
+
+
 def get_feeds_for_topic(config, topic_id):
     """Return list of feed defs that subscribe to a topic."""
     return [f for f in config.get("feeds", []) if topic_id in f.get("topics", [])]
@@ -279,12 +288,33 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, targe
             print(f"  Wrote to {combined_feed}.xml")
 
     # Update state once (outside lock — per-topic file, no contention)
+    new_fps = extract_fingerprints(title, content_html)
     update_state(feed_id, state_dir, {
         "guid": guid,
         "title": title,
         "date": date_str,
-        "fingerprints": extract_fingerprints(title, content_html),
+        "fingerprints": new_fps,
     }, run_id=run_id)
+
+    # Overlap warning: check new fingerprints against recent entries
+    # Regenerate fingerprints from titles (not stored fps) for consistent comparison
+    recent = [e for e in load_state(feed_id, state_dir).get("entries", [])
+              if _days_ago(e.get("date", "")) <= 7 and e.get("guid") != guid]
+    overlaps = []
+    new_fp_set = set(new_fps)
+    for existing in recent:
+        existing_fps = set(extract_fingerprints(existing["title"], ""))
+        shared = new_fp_set & existing_fps
+        if len(shared) >= 2:
+            overlaps.append((existing["title"], existing.get("date", "?"), shared))
+    if overlaps:
+        print(f"\n  *** OVERLAP WARNING ***")
+        print(f"  This entry shares key terms with recent entries:")
+        for ext_title, ext_date, shared in overlaps[:3]:
+            print(f"    - \"{ext_title}\" ({ext_date})")
+            print(f"      Shared: {', '.join(sorted(shared))}")
+        print(f"  If this is a genuine follow-up with NEW FACTS, keep it.")
+        print(f"  If this re-covers the same story, roll back with: python feed.py rollback {feed_id}\n")
 
     # Report word count so the agent can self-correct if too short
     import re
@@ -300,16 +330,46 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, targe
 
 
 def extract_fingerprints(title, _content):
-    """Extract simple fingerprints for dedup — lowercase key phrases from title."""
-    words = title.lower().split()
-    # Use 3-word sliding windows as fingerprints
-    fingerprints = []
-    if len(words) >= 3:
-        for i in range(len(words) - 2):
-            fingerprints.append(" ".join(words[i:i+3]))
-    else:
-        fingerprints.append(" ".join(words))
-    return fingerprints
+    """Extract entity-based fingerprints for dedup from title.
+
+    Produces three kinds of fingerprints:
+    1. Individual English words (3+ chars, excluding stopwords)
+    2. Multi-word English sequences (consecutive English tokens)
+    3. Short CJK runs (2-6 chars — typical entity name length)
+    """
+    fingerprints = set()
+
+    _STOPWORDS = frozenset({
+        "the", "and", "for", "with", "from", "this", "that", "but", "not",
+        "are", "was", "has", "had", "have", "will", "can", "its", "also",
+        "into", "than", "been", "each", "more", "some", "new", "per",
+    })
+
+    # Strip leading emoji (topic prefix) before extraction
+    clean = re.sub(r'^[\U0001f000-\U0001ffff\s]+', '', title)
+
+    # --- English tokens ---
+    # Find runs of consecutive English/number tokens (split by CJK or punctuation)
+    # Include accented chars (é, ü, etc.) common in artist/place names
+    en_runs = re.findall(r'[A-Za-z\u00C0-\u024F0-9][A-Za-z\u00C0-\u024F0-9\s\-]*[A-Za-z\u00C0-\u024F0-9]', clean)
+    for run in en_runs:
+        words = run.split()
+        # Individual words (3+ chars, not stopwords)
+        for w in words:
+            low = w.lower().strip("-")
+            if len(low) >= 3 and low not in _STOPWORDS:
+                fingerprints.add(low)
+        # Multi-word phrases (2+ words) — captures "Cole Palmer", "Galaxy S26 Ultra"
+        if len(words) >= 2:
+            fingerprints.add(" ".join(w.lower() for w in words))
+
+    # --- CJK entity runs ---
+    # Extract runs of 2-6 CJK chars (typical entity names: 曼联, 欧冠八强, 四月更新)
+    cjk_runs = re.findall(r'[\u4e00-\u9fff\u3400-\u4dbf]{2,6}', clean)
+    for run in cjk_runs:
+        fingerprints.add(run)
+
+    return sorted(fingerprints) if fingerprints else [clean.lower().strip()]
 
 
 def update_state(feed_id, state_dir, entry_record, run_id=None):
@@ -478,8 +538,23 @@ def list_entries(feed_id, _feeds_dir, state_dir):
 
 
 def show_state(feed_id, state_dir):
-    """Dump raw state JSON for a feed (for Claude to read)."""
+    """Dump state JSON for a feed, with a covered-subjects preamble for dedup."""
     state = load_state(feed_id, state_dir)
+
+    # Print covered-subjects preamble for last 7 days
+    # Regenerate fingerprints from titles for consistent entity display
+    recent = [e for e in state.get("entries", []) if _days_ago(e.get("date", "")) <= 7]
+    if recent:
+        print("=== RECENTLY COVERED (last 7 days) — do NOT re-cover unless you have NEW FACTS ===")
+        for e in sorted(recent, key=lambda x: x.get("date", ""), reverse=True):
+            fps = extract_fingerprints(e["title"], "")
+            print(f"  [{e.get('date', '')}] {e['title']}")
+            if fps:
+                print(f"           entities: {', '.join(fps[:8])}")
+        print(f"  ({len(recent)} entries in last 7 days)")
+        print("===")
+        print()
+
     print(json.dumps(state, indent=2, ensure_ascii=False))
 
 
