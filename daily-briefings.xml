@@ -39,7 +39,7 @@
       <groupTag>anthropic</groupTag>
       <category>frontier-lab</category>
       <link>https://www.anthropic.com/news/claude-opus-4-7</link>
-      <enclosure url="https://www.anthropic-cdn.com/images/4zrzovbb/website/96ea2509a90e527642c822303e56296a07bcfce4-1920x1080.png" type="image/jpeg" length="0" />
+      <enclosure url="https://cdn.sanity.io/images/4zrzovbb/website/96ea2509a90e527642c822303e56296a07bcfce4-1920x1080.png" type="image/jpeg" length="0" />
     </item>
     <item>
       <title>OpenAI ships GPT-5.5 six weeks after 5.4, leaning hard into agents and Codex</title>
@@ -74,7 +74,6 @@
       <groupTag>openai</groupTag>
       <category>frontier-lab</category>
       <link>https://openai.com/index/introducing-gpt-5-5/</link>
-      <enclosure url="https://images.ctfassets.net/kftzwdyauwt9/4Mq4cYrR7Hmnb1wZqxTrYG/openai-banner.png" type="image/jpeg" length="0" />
     </item>
     <item>
       <title>Gemma 4 lands in four sizes, including a 26B MoE that activates only 3.8B parameters</title>
@@ -112,7 +111,7 @@
       <groupTag>google-deepmind</groupTag>
       <category>frontier-lab</category>
       <link>https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/</link>
-      <enclosure url="https://lh3.googleusercontent.com/dgWXJe3CEYV3TND6RvRPANNZ_YsErtYAWmFYC1BjQCn1QVLWx2mfBqyyUqAwaGPfBKV_81M6yE2IwI866_0EMu0Azx4_QFE3283E0Vz7dONAR7F5wA=w1440" type="image/jpeg" length="0" />
+      <enclosure url="https://storage.googleapis.com/gweb-uniblog-publish-prod/images/gemma-4_blog_keyword_meta-dark.width-1300.png" type="image/jpeg" length="0" />
     </item>
     <item>
       <title>Meta launches Muse Spark, the first model from MSL, with a Contemplating multi-agent reasoning mode</title>
@@ -149,7 +148,6 @@
       <groupTag>meta-ai</groupTag>
       <category>frontier-lab</category>
       <link>https://ai.meta.com/blog/introducing-muse-spark-msl/</link>
-      <enclosure url="https://scontent.fmsp1-1.fna.fbcdn.net/muse-spark-hero.jpg" type="image/jpeg" length="0" />
     </item>
     <item>
       <title>DeepSeek V4 Pro and Flash arrive with 1.6T parameters, 1M context, and frontier pricing pressure</title>
@@ -189,7 +187,7 @@
       <groupTag>deepseek</groupTag>
       <category>frontier-lab</category>
       <link>https://simonwillison.net/2026/Apr/24/deepseek-v4/</link>
-      <enclosure url="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/resolve/main/figures/banner.png" type="image/jpeg" length="0" />
+      <enclosure url="https://static.simonwillison.net/static/2026/deepseek-v4-card.jpg" type="image/jpeg" length="0" />
     </item>
   </channel>
 </rss>
