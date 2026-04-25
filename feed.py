@@ -16,17 +16,41 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 
+_BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
+def head_check_image(url, timeout=8):
+    """HEAD-check an image URL. Returns True if 2xx, False otherwise.
+    Falls back to a tiny ranged GET when HEAD is rejected (some CDNs 405 on HEAD)."""
+    import urllib.request
+    headers = {"User-Agent": _BROWSER_UA, "Accept": "image/*"}
+    try:
+        req = urllib.request.Request(url, method="HEAD", headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception:
+        pass
+    try:
+        req = urllib.request.Request(url, headers={**headers, "Range": "bytes=0-0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception:
+        return False
+
+
 def fetch_og_image(url, timeout=10):
     """Try to extract og:image or twitter:image from a URL. Returns image URL or None."""
     try:
         import urllib.request
         req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; cc-deepfeed/1.0)",
-            "Accept": "text/html",
+            "User-Agent": _BROWSER_UA,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
         })
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            # Only read first 50KB to find meta tags quickly
-            head_bytes = resp.read(51200)
+            # Read up to 512KB — modern Next.js sites (Anthropic, OpenAI) put og:image
+            # 100-200KB into the document after the JS bundle.
+            head_bytes = resp.read(524288)
             try:
                 head_html = head_bytes.decode("utf-8", errors="ignore")
             except Exception:
@@ -211,7 +235,7 @@ def init_feed(name, description, feeds_dir, combined_feed, base_url=None, websub
     print(f"Initialized feed: {path}")
 
 
-def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, target_feeds, run_id=None, image_url=None, emoji=None):
+def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, target_feeds, run_id=None, image_url=None, emoji=None, article_date=None, group=None):
     """Add an entry to subscriber feed XMLs and update per-topic state.
 
     target_feeds: list of combined_feed name strings (e.g., ["daily-briefings", "rachel-briefings"])
@@ -227,14 +251,21 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, targe
     # Normalize sources to list once
     source_list = sources if isinstance(sources, list) else split_csv(sources or "")
 
-    # Auto-extract og:image from first source if no image provided (outside lock — network I/O)
+    # Validate provided --image; if it fails HEAD check, treat as missing.
+    if image_url:
+        if not head_check_image(image_url):
+            print(f"  ⚠️  Provided --image URL not reachable (likely worker hallucination): {image_url[:80]}", file=sys.stderr)
+            image_url = None
+
+    # Auto-extract og:image from first source if no image (or invalid one) provided.
     if not image_url and source_list:
-        print(f"  📷 No --image provided, auto-extracting from {source_list[0]}...")
-        image_url = fetch_og_image(source_list[0])
-        if image_url:
-            print(f"  ✅ Found og:image: {image_url[:80]}...")
+        print(f"  📷 Auto-extracting og:image from {source_list[0]}...")
+        candidate = fetch_og_image(source_list[0])
+        if candidate and head_check_image(candidate):
+            image_url = candidate
+            print(f"  ✅ Using og:image: {image_url[:80]}...")
         else:
-            print(f"  ⚠️  No og:image found. Entry will lack thumbnail.")
+            print(f"  ⚠️  No usable og:image found. Entry will lack thumbnail.")
 
     # Build content with sources
     body = content_html
@@ -272,6 +303,10 @@ def add_entry(feed_id, title, content_html, sources, feeds_dir, state_dir, targe
             ET.SubElement(item, "description").text = body
             ET.SubElement(item, "guid", isPermaLink="false").text = guid
             ET.SubElement(item, "pubDate").text = rfc822(now)
+            if article_date:
+                ET.SubElement(item, "articleDate").text = article_date
+            if group:
+                ET.SubElement(item, "groupTag").text = group
             ET.SubElement(item, "category").text = feed_id
             if source_list:
                 ET.SubElement(item, "link").text = source_list[0]
@@ -840,85 +875,226 @@ def generate_opml(config, base_url):
 
 
 def generate_index_html(config, base_url):
-    """Generate a simple index.html listing all user feeds."""
+    """Generate index.html listing all feeds with recent entry previews."""
+    import re as _re
+    from email.utils import parsedate_to_datetime
     feeds_dir, state_dir = get_dirs(config)
     topics = config.get("topics", [])
     feed_defs = config.get("feeds", [])
+    topic_map = {t["id"]: t.get("name", t["id"]) for t in topics}
 
-    # Count total entries across all topics
-    total_entries = 0
-    for topic in topics:
-        state = load_state(topic["id"], state_dir)
-        total_entries += len(state.get("entries", []))
+    # Collect group definitions per topic from config: {topic_id: [(group_id, group_name), ...]}
+    groups_by_topic = {}
+    for t in topics:
+        gs = []
+        for g in t.get("groups", []) or []:
+            if isinstance(g, dict):
+                gs.append((g.get("id"), g.get("name", g.get("id"))))
+            else:
+                gs.append((g, g))
+        if gs:
+            groups_by_topic[t["id"]] = gs
 
-    # Build per-feed subscribe links
+    all_entries = []
+    seen_guids = set()
+    for feed_def in feed_defs:
+        path = feed_path(feeds_dir, feed_def["combined_feed"])
+        if not path.exists():
+            continue
+        ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
+        tree = ET.parse(path)
+        for item in tree.getroot().find("channel").findall("item"):
+            guid_el = item.find("guid")
+            guid = guid_el.text if guid_el is not None else ""
+            if guid in seen_guids:
+                continue
+            seen_guids.add(guid)
+            title = item.find("title").text or ""
+            desc = item.find("description").text or ""
+            link_el = item.find("link")
+            link = link_el.text if link_el is not None else ""
+            cat_el = item.find("category")
+            category = cat_el.text if cat_el is not None else ""
+            pub_el = item.find("pubDate")
+            pub_date = pub_el.text if pub_el is not None else ""
+            enclosure = item.find("enclosure")
+            image = enclosure.get("url", "") if enclosure is not None else ""
+            article_date_el = item.find("articleDate")
+            article_date = article_date_el.text if article_date_el is not None else ""
+            group_el = item.find("groupTag")
+            group = group_el.text if group_el is not None else ""
+            text = _re.sub(r'<[^>]+>', ' ', desc).strip()
+            text = _re.sub(r'\s+', ' ', text)
+            snippet = text[:250].rsplit(" ", 1)[0] + "..." if len(text) > 250 else text
+            all_entries.append({
+                "title": title, "snippet": snippet, "link": link,
+                "category": category, "pub_date": pub_date, "image": image,
+                "article_date": article_date, "group": group,
+            })
+
+    # Newest first — XML stores oldest-first since add appends.
+    _epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    def _key(e):
+        try:
+            return parsedate_to_datetime(e["pub_date"])
+        except (TypeError, ValueError):
+            return _epoch
+    all_entries.sort(key=_key, reverse=True)
+
     feed_links = []
     for feed_def in feed_defs:
         feed_url = f"{base_url.rstrip('/')}/{feed_def['combined_feed']}.xml"
-        feed_links.append(f'    <a href="{feed_url}">{html.escape(feed_def["feed_name"])}</a>')
-
-    # Build per-topic channel sections for split feeds
-    per_topic_html = ""
-    for feed_def in feed_defs:
-        if feed_def.get("split_by_topic"):
-            channel_links = []
-            for topic_id in feed_def.get("topics", []):
-                topic = get_topic(config, topic_id)
-                topic_name = topic.get("name", topic_id) if topic else topic_id
-                slug = get_per_topic_feed_name(feed_def["combined_feed"], topic_id)
-                topic_url = f"{base_url.rstrip('/')}/{slug}.xml"
-                channel_links.append(f'<a href="{topic_url}">{html.escape(topic_name)}</a>')
-            if channel_links:
-                per_topic_html += f'  <div class="channels"><strong>{html.escape(feed_def["feed_name"])} channels:</strong><br/>\n'
-                per_topic_html += "    " + " &middot; ".join(channel_links) + "\n"
-                per_topic_html += "  </div>\n"
-
-    topic_list = ", ".join(t.get("name", t["id"]) for t in topics)
-
+        feed_links.append(f'<a href="{feed_url}">{html.escape(feed_def["feed_name"])}</a>')
     subscribe_links = " &middot; ".join(feed_links)
 
-    parts = [
-        '<!DOCTYPE html>',
-        '<html lang="en">',
-        '<head>',
-        '  <meta charset="utf-8">',
-        '  <meta name="viewport" content="width=device-width, initial-scale=1">',
-        '  <title>RSS Research Feeds</title>',
-        '  <style>',
-        '    body { font-family: -apple-system, system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }',
-        '    h1 { border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }',
-        '    .subscribe { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; }',
-        '    .subscribe a { color: #0066cc; text-decoration: none; font-weight: bold; }',
-        '    .subscribe a:hover { text-decoration: underline; }',
-        '    .channels { margin: 0.5rem 0 0; padding: 0.75rem 1rem; background: #f8f8f8; border-radius: 4px; font-size: 0.9rem; line-height: 1.6; }',
-        '    .channels a { color: #0066cc; text-decoration: none; }',
-        '    .channels a:hover { text-decoration: underline; }',
-        '    .topics { margin: 1rem 0; color: #666; font-size: 0.9rem; }',
-        '    .meta { color: #999; font-size: 0.85rem; margin-top: 0.5rem; }',
-        '    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #999; font-size: 0.85rem; }',
-        '  </style>',
-        '</head>',
-        '<body>',
-        '  <h1>RSS Research Feeds</h1>',
-        '  <p>Deep research briefings delivered as RSS feeds.</p>',
-        '  <div class="subscribe">',
-        f'    {subscribe_links}',
-        f'    &middot; <a href="{base_url.rstrip("/")}/index.opml">Import (OPML)</a>',
-        '  </div>',
-    ]
-    if per_topic_html:
-        parts.append(per_topic_html.rstrip())
-    parts.extend([
-        f'  <div class="topics"><strong>Topics:</strong> {html.escape(topic_list)}</div>',
-        f'  <div class="meta">{total_entries} entries &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d")}</div>',
-        f'  <footer>Generated by cc-deepfeed</footer>',
-        '</body>',
-        '</html>',
-    ])
+    entry_cards = []
+    for entry in all_entries[:50]:
+        topic_id = entry["category"]
+        topic_name = html.escape(topic_map.get(topic_id, topic_id))
+        title_escaped = html.escape(entry["title"])
+        link_attr = f' href="{html.escape(entry["link"])}"' if entry["link"] else ""
+        image_html = ""
+        if entry["image"]:
+            image_html = f'<img class="entry-img" src="{html.escape(entry["image"])}" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+        group_attr = html.escape(entry["group"]) if entry["group"] else ""
+        # Pretty group name from config
+        group_name = ""
+        for gid, gname in groups_by_topic.get(topic_id, []):
+            if gid == entry["group"]:
+                group_name = gname
+                break
+        meta_bits = [topic_name]
+        if group_name:
+            meta_bits.append(html.escape(group_name))
+        if entry["article_date"]:
+            meta_bits.append("Published " + html.escape(entry["article_date"]))
+        elif entry["pub_date"]:
+            meta_bits.append(html.escape(entry["pub_date"][:16]))
+        meta_html = " &middot; ".join(meta_bits)
+        entry_cards.append(
+            f'<article class="entry" data-topic="{html.escape(topic_id)}" data-group="{group_attr}">'
+            f'{image_html}'
+            f'<div class="entry-body">'
+            f'<h3><a{link_attr} target="_blank" rel="noopener">{title_escaped}</a></h3>'
+            f'<div class="entry-meta">{meta_html}</div>'
+            f'<p class="entry-snippet">{html.escape(entry["snippet"])}</p>'
+            f'</div>'
+            f'</article>'
+        )
+    entries_html = "\n".join(entry_cards) if entry_cards else "<p>No entries yet. Run a research cycle to populate feeds.</p>"
+
+    # Build filter chip bars — one per topic that has groups defined.
+    filter_bars = []
+    for t in topics:
+        gs = groups_by_topic.get(t["id"])
+        if not gs:
+            continue
+        chips = [f'<button class="chip active" data-topic="{html.escape(t["id"])}" data-filter="all">All</button>']
+        for gid, gname in gs:
+            chips.append(
+                f'<button class="chip" data-topic="{html.escape(t["id"])}" data-filter="{html.escape(gid)}">{html.escape(gname)}</button>'
+            )
+        filter_bars.append(
+            f'<div class="filter-bar" data-topic-filter="{html.escape(t["id"])}">'
+            f'<span class="filter-label">{html.escape(t.get("name", t["id"]))}:</span>'
+            f'{"".join(chips)}'
+            f'</div>'
+        )
+    filters_html = "\n".join(filter_bars)
+
+    page_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Feeds</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem; color: #1a1a1a; background: #fafafa; }}
+    h1 {{ font-size: 1.6rem; margin-bottom: 0.25rem; }}
+    .subtitle {{ color: #666; margin-top: 0; margin-bottom: 1.5rem; }}
+    .subscribe {{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; padding: 0.8rem 1rem; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }}
+    .subscribe a {{ color: #0066cc; text-decoration: none; font-weight: 600; }}
+    .subscribe a:hover {{ text-decoration: underline; }}
+    .subscribe .label {{ color: #999; font-size: 0.85rem; }}
+    .filter-bar {{ display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.8rem; padding: 0.6rem 0.8rem; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }}
+    .filter-label {{ font-size: 0.78rem; color: #888; margin-right: 0.4rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }}
+    .chip {{ font-family: inherit; font-size: 0.82rem; padding: 0.32rem 0.7rem; border: 1px solid #d0d0d0; background: #fff; color: #444; border-radius: 999px; cursor: pointer; transition: all 0.12s; }}
+    .chip:hover {{ border-color: #0066cc; color: #0066cc; }}
+    .chip.active {{ background: #0066cc; border-color: #0066cc; color: #fff; }}
+    .entries {{ display: flex; flex-direction: column; gap: 1rem; }}
+    .entry.hidden {{ display: none; }}
+    .entry {{ display: flex; gap: 1rem; padding: 1rem; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; transition: box-shadow 0.15s; }}
+    .entry:hover {{ box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+    .entry-img {{ width: 120px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }}
+    .entry-body {{ flex: 1; min-width: 0; }}
+    .entry h3 {{ font-size: 1rem; margin: 0 0 0.3rem; line-height: 1.35; }}
+    .entry h3 a {{ color: #1a1a1a; text-decoration: none; }}
+    .entry h3 a:hover {{ color: #0066cc; }}
+    .entry-meta {{ font-size: 0.78rem; color: #888; margin-bottom: 0.4rem; }}
+    .entry-snippet {{ font-size: 0.88rem; color: #555; margin: 0; line-height: 1.5; }}
+    footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e0e0; color: #aaa; font-size: 0.8rem; text-align: center; }}
+    @media (max-width: 500px) {{
+      .entry {{ flex-direction: column; }}
+      .entry-img {{ width: 100%; height: 160px; }}
+    }}
+  </style>
+</head>
+<body>
+  <h1>Research Feeds</h1>
+  <p class="subtitle">Deep research briefings powered by Claude</p>
+  <div class="subscribe">
+    <span class="label">Subscribe:</span> {subscribe_links}
+    &middot; <a href="{base_url.rstrip("/")}/index.opml">OPML</a>
+  </div>
+  {filters_html}
+  <div class="entries">
+{entries_html}
+  </div>
+  <footer>{len(all_entries)} entries &middot; Updated {datetime.now(timezone.utc).strftime("%Y-%m-%d")} &middot; Generated by cc-deepfeed</footer>
+  <script>
+    (function() {{
+      const state = {{}}; // topic_id -> active filter ('all' or group_id)
+      document.querySelectorAll('.filter-bar').forEach(function(bar) {{
+        const topic = bar.getAttribute('data-topic-filter');
+        state[topic] = 'all';
+      }});
+
+      function applyFilters() {{
+        document.querySelectorAll('.entry').forEach(function(card) {{
+          const topic = card.getAttribute('data-topic');
+          const group = card.getAttribute('data-group') || '';
+          const active = state[topic];
+          // If this topic has no filter bar (no groups defined), always show.
+          if (active === undefined) {{ card.classList.remove('hidden'); return; }}
+          if (active === 'all' || group === active) {{
+            card.classList.remove('hidden');
+          }} else {{
+            card.classList.add('hidden');
+          }}
+        }});
+      }}
+
+      document.querySelectorAll('.chip').forEach(function(chip) {{
+        chip.addEventListener('click', function() {{
+          const topic = chip.getAttribute('data-topic');
+          const filter = chip.getAttribute('data-filter');
+          state[topic] = filter;
+          // Update active class on chips in the same bar
+          document.querySelectorAll('.chip[data-topic="' + topic + '"]').forEach(function(c) {{
+            c.classList.toggle('active', c === chip);
+          }});
+          applyFilters();
+        }});
+      }});
+    }})();
+  </script>
+</body>
+</html>'''
 
     index_path = feeds_dir / "index.html"
     with open(index_path, "w") as f:
-        f.write("\n".join(parts))
+        f.write(page_html)
     print(f"Generated index: {index_path}")
 
 
@@ -1048,6 +1224,8 @@ def main():
     p_add.add_argument("--sources", default="", help="Comma-separated source URLs")
     p_add.add_argument("--image", default=None, help="URL of an image to use as RSS enclosure/thumbnail")
     p_add.add_argument("--run-id", default=None, help="Run identifier for rollback grouping")
+    p_add.add_argument("--article-date", default=None, help="Original publication date of the source article (YYYY-MM-DD). Distinct from pubDate, which is the collection time.")
+    p_add.add_argument("--group", default=None, help="Group/tab ID for this entry (e.g., 'anthropic'). Must be in the topic's groups: list in config.yaml; warns otherwise.")
 
     # prune
     p_prune = sub.add_parser("prune", help="Prune old entries from combined feed")
@@ -1158,8 +1336,14 @@ def main():
             print(f"Warning: no feeds subscribe to {args.feed_id}", file=sys.stderr)
         topic = get_topic(config, args.feed_id)
         emoji = topic.get("emoji") if topic else None
+        group = args.group
+        if group and topic:
+            valid_groups = {g["id"] if isinstance(g, dict) else g for g in topic.get("groups", [])}
+            if valid_groups and group not in valid_groups:
+                print(f"  ⚠️  --group '{group}' is not in topic '{args.feed_id}' groups: {sorted(valid_groups)}. Writing it anyway.", file=sys.stderr)
         add_entry(args.feed_id, args.title, args.content, sources, feeds_dir, state_dir,
-                  target_feeds, run_id=args.run_id, image_url=args.image, emoji=emoji)
+                  target_feeds, run_id=args.run_id, image_url=args.image, emoji=emoji,
+                  article_date=args.article_date, group=group)
     elif args.command == "prune":
         # Prune all feed XMLs (including per-topic splits)
         for combined_feed in get_all_xml_names(config):

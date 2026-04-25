@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 # --- Config ---
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 PYTHON="${PYTHON:-python3}"
-WORKER_TIMEOUT="${WORKER_TIMEOUT:-900}"   # 15 min per worker
+WORKER_TIMEOUT="${WORKER_TIMEOUT:-1800}"  # 30 min per worker (raised for target=25)
 TIMEOUT_BIN="${TIMEOUT_BIN:-timeout}"
 
 # --- Log rotation ---

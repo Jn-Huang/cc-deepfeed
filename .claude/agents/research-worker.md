@@ -128,6 +128,8 @@ For each finding worth reporting, create a briefing entry.
 
 **Each entry must have:**
 - A specific, informative title (not generic like "AI Progress Update"). **Do NOT include emojis in the title** — `feed.py` automatically prepends the topic emoji from config.
+- An **article date** — the original publication date of the source you are reporting on. Extract this from the source page (look for `<time>`, `article:published_time` meta, or a visible byline date). Pass it via `--article-date YYYY-MM-DD`. This is distinct from the entry's collection time (which `feed.py` records automatically as `pubDate`). If the source genuinely has no date, omit the flag — do not guess.
+- A **group tag** if the topic defines `groups:` in `config.yaml`. Pass `--group <id>` using exactly one of the IDs listed for this topic. The group becomes a filter chip on the index page so readers can scope to one entity (e.g., one lab). If you cannot confidently classify the entry into one of the listed groups, use the catch-all (e.g., `cross-lab`) if the topic provides one, or omit the flag. The topic's brief md file lists which group IDs are valid — read it.
 - A thumbnail image (**required unless truly impossible**) — for EVERY entry, use WebFetch on the primary source URL and look for: `og:image` meta tag, `twitter:image` meta tag, or the first prominent `<img>` in the article body. Extract the full image URL. Pass it via `--image` (this sets the RSS enclosure/thumbnail only — it is NOT inserted into the content). Only omit if you fetched the source page and genuinely found zero usable images.
 - **Inline figures** — embed `<figure>` tags directly in your HTML content wherever images add value. For visual topics (UX, design, architecture, product showcases), include multiple figures placed next to the relevant text. For news/analysis topics, one or zero inline figures is fine. Use the format: `<figure><img src="..." alt="descriptive alt text" style="max-width:100%;height:auto;" /><figcaption>Caption here</figcaption></figure>`. Source image URLs from articles you WebFetch during research.
 - What happened — the concrete facts, with specifics from source articles
@@ -167,8 +169,12 @@ python feed.py add <feed_id> \
   --content "<p>Your HTML briefing content here...</p>" \
   --sources "https://source1.com,https://source2.com" \
   --image "https://example.com/article-hero.jpg" \
+  --article-date "2026-04-02" \
+  --group "anthropic" \
   --run-id "<run_id>"
 ```
+
+`--article-date` is the source article's original publication date (YYYY-MM-DD). `pubDate` in the XML — the time we collected the news — is set automatically. Both end up in the feed: collection time as `<pubDate>`, original publication as `<articleDate>`.
 The `--image` flag sets the RSS `<enclosure>` for reader thumbnails — it does NOT insert any figure into the content. To include images in the entry body, embed `<figure>` tags directly in your `--content` HTML at the appropriate locations.
 
 **Auto-distribution:** `feed.py add` automatically writes the entry to ALL user feeds that subscribe to this topic. No extra flags needed — just call `add` with the topic ID and the config handles the rest.
