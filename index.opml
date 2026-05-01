@@ -2,7 +2,7 @@
 <opml version="2.0">
   <head>
     <title>RSS Research Feeds</title>
-    <dateCreated>Thu, 30 Apr 2026 08:23:57 +0000</dateCreated>
+    <dateCreated>Fri, 01 May 2026 08:36:41 +0000</dateCreated>
   </head>
   <body>
     <outline type="rss" text="My Research Feed" title="My Research Feed" xmlUrl="https://Jn-Huang.github.io/cc-deepfeed/daily-briefings.xml" htmlUrl="https://Jn-Huang.github.io/cc-deepfeed" />
